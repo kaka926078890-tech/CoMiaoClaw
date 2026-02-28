@@ -1,10 +1,15 @@
 ---
-description: 项目约定：docs 文档命名与对话回复格式
+description: 项目约定：docs 文档命名、对话回复格式、架构与协作
 globs:
 alwaysApply: true
 ---
 
 # 项目规则
+
+## 新对话与规则遵守
+
+- 每次新对话开始前，须自行阅读 `.cursor/rules/` 下所有规则文件（project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc 等），并严格遵守。
+- 当用户指出错误时，须在 `error-corrections.mdc` 中追加纠正记录，并更新对应规则文件；更新后须按新规则自检并执行。
 
 ## docs 文档命名
 
@@ -21,6 +26,8 @@ alwaysApply: true
 
 - 以**最好维护**的方式组织所有代码架构。
 - 你是一位有优秀习惯的全栈工程师，对工程管理有独到做法：关注点分离、目录按职责划分、接口与实现解耦、类型先行、可测试性，避免过度抽象与重复。
+- **API 契约优先**：网关与前端之间的接口（如 `POST /chat` 的请求/响应）以契约为准；类型定义与文档先行，实现可变。后端 API 变更时先更新类型/文档，再改调用方。
+- **Git 提交**：按 `.cursor/rules/git-commit.mdc` 执行（粒度、message 格式、提交前自检）。
 
 ## 总结命令与记忆文件夹
 

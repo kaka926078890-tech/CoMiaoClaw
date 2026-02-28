@@ -28,3 +28,8 @@ export function getChatUrl(): string {
   const base = config.gatewayOrigin || "";
   return `${base}${config.chatPath}`;
 }
+
+export function getChatStreamUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}${config.chatPath}/stream`;
+}

@@ -1,0 +1,40 @@
+---
+description: 文档命名与存放规范，后续创建或重命名文档时请遵循
+globs: "**/*.md"
+alwaysApply: false
+---
+
+# 文档命名与结构规范
+
+创建或重命名项目内 Markdown 文档时，按以下规范执行，以保持仓库内格式统一，便于整体架构与后续扩展。
+
+## 一、文件名格式
+
+- **统一使用小写 + 连字符（kebab-case）**。
+- 示例：`minimal-mvp.md`、`roadmap.md`、`backend-design.md`、`gateway-api.md`。
+
+**不要使用**：全大写、下划线命名（如 `TEST_XXX.md`、`Some_Spec.md`），除非是历史已有且暂不重命名。
+
+## 二、存放位置
+
+| 位置 | 用途 |
+|------|------|
+| 仓库根目录 `docs/` | 跨模块、整体说明（如 MVP 范围、roadmap、联调说明） |
+| 子项目内 `*/docs/` 或 `*/README.md` | 该模块专属文档（如 gateway、frontend 的说明） |
+| 临时文档 | `*.tmp-note.md`，完成后及时清理 |
+
+## 三、常见文档类型与命名示例
+
+| 类型 | 命名示例 |
+|------|----------|
+| 产品/范围说明 | `minimal-mvp.md`、`roadmap.md` |
+| 架构/设计 | `backend-design.md`、`gateway-design.md` |
+| API 契约 | `gateway-api.md`、`chat-api.md` |
+| 错误码/约定 | `error-codes.md` |
+| 目录说明 | `README.md`（固定文件名可保留） |
+
+## 四、执行约定
+
+- **新增文档**：文件名与路径按上述规范命名和存放。
+- **重命名文档**：若发现不符合 kebab-case 的文档，可建议或改为小写连字符格式，并更新引用。
+- 与 `project.mdc` 中「docs 文档命名」一致；本条作为详细补充，便于后续架构文档扩展。

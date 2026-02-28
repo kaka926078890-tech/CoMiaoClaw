@@ -1,13 +1,17 @@
+import { useRef, useCallback } from "react";
 import { useChat } from "@/hooks/useChat";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import styles from "./ChatConsole.module.css";
 
-/**
- * 对话控制台：单会话聊天界面，符合 MVP 约定（输入、发送、展示回复）。
- */
 export function ChatConsole() {
-  const { messages, send, isLoading, error, clearError } = useChat();
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const onReplyComplete = useCallback(() => {
+    inputRef.current?.focus();
+  }, []);
+  const { messages, send, isLoading, error, clearError } = useChat({
+    onReplyComplete,
+  });
 
   return (
     <div className={styles.console}>
@@ -26,7 +30,7 @@ export function ChatConsole() {
       )}
 
       <MessageList messages={messages} isLoading={isLoading} />
-      <MessageInput onSend={send} disabled={isLoading} />
+      <MessageInput ref={inputRef} onSend={send} disabled={isLoading} />
     </div>
   );
 }

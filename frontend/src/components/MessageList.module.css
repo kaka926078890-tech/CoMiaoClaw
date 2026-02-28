@@ -1,6 +1,11 @@
-.list {
+.wrapper {
   flex: 1;
-  overflow-y: auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.list {
   padding: 1rem;
   display: flex;
   flex-direction: column;

@@ -1,5 +1,5 @@
 import type { ChatRequest, ChatResponse } from "@/types/chat";
-import { config, getChatUrl } from "@/config/env";
+import { config, getChatUrl, getChatStreamUrl } from "@/config/env";
 
 export interface SendMessageResult {
   success: true;
@@ -49,4 +49,81 @@ export async function sendMessage(message: string): Promise<SendMessageOutcome> 
     const msg = e instanceof Error ? e.message : String(e);
     return { success: false, error: `网络错误: ${msg}` };
   }
+}
+
+export function sendMessageStreaming(
+  message: string,
+  onChunk: (text: string) => void,
+  onDone: () => void,
+  onError: (err: string) => void
+): void {
+  const url = getChatStreamUrl();
+  const body: ChatRequest = {
+    message,
+    ...(config.ollamaModel ? { model: config.ollamaModel } : {}),
+  };
+  fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  })
+    .then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text();
+        onError(`请求失败 ${res.status}: ${text || res.statusText}`);
+        return;
+      }
+      const reader = res.body?.getReader();
+      if (!reader) {
+        onError("响应无 body");
+        return;
+      }
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+          const dataStr = trimmed.slice(6);
+          if (dataStr === "[DONE]") {
+            onDone();
+            return;
+          }
+          try {
+            const data = JSON.parse(dataStr) as { chunk?: string; error?: string };
+            if (data.error) {
+              onError(data.error);
+              return;
+            }
+            if (typeof data.chunk === "string") onChunk(data.chunk);
+          } catch {
+            // skip malformed
+          }
+        }
+      }
+      if (buffer.trim().startsWith("data: ")) {
+        const dataStr = buffer.trim().slice(6);
+        if (dataStr === "[DONE]") {
+          onDone();
+          return;
+        }
+        try {
+          const data = JSON.parse(dataStr) as { chunk?: string; error?: string };
+          if (data.error) onError(data.error);
+          else if (typeof data.chunk === "string") onChunk(data.chunk);
+        } catch {
+          // skip
+        }
+      }
+      onDone();
+    })
+    .catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      onError(`网络错误: ${msg}`);
+    });
 }
