@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build / dist
+frontend/dist/
+gateway/dist/
+*.tsbuildinfo
+
+# Environment (do not commit secrets)
+.env
+.env.local
+.env.*.local
+
+# Script runtime
+script/logs/
+script/claw.pids
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs & debug
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Vite
+frontend/node_modules/.vite/
+
+# Optional: keep .env.example tracked
+!.env.example

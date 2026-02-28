@@ -1,0 +1,49 @@
+.console {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  max-width: 48rem;
+  margin: 0 auto;
+  background: #fff;
+  box-shadow: 0 0 1rem rgba(0, 0, 0, 0.06);
+}
+
+.header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  background: #ffebee;
+  border: 1px solid #ef5350;
+  color: #c62828;
+  font-size: 0.875rem;
+  flex-shrink: 0;
+}
+
+.dismiss {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}

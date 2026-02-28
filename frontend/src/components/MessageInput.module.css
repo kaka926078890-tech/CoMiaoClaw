@@ -1,0 +1,48 @@
+.wrap {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.input {
+  flex: 1;
+  resize: none;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+  font: inherit;
+  min-height: 2.5rem;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #1976d2;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.input:disabled {
+  background: #eee;
+  cursor: not-allowed;
+}
+
+.button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: #1976d2;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  align-self: flex-end;
+}
+
+.button:hover:not(:disabled) {
+  background: #1565c0;
+}
+
+.button:disabled {
+  background: #9e9e9e;
+  cursor: not-allowed;
+}
