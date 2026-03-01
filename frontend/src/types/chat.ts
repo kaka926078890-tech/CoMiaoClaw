@@ -1,10 +1,24 @@
 /** 单条消息：与 MVP 约定一致 */
 export type MessageRole = "user" | "assistant" | "system";
 
+export interface SubAgentBlock {
+  role: string;
+  thinking: string;
+  content: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: MessageRole;
   content: string;
+  /** 助手消息的思考过程（如 deepseek-r1 think），可选 */
+  thinking?: string;
+  /** 子 agent 列表（researcher/coder 等的思考+结论），可选 */
+  subAgents?: SubAgentBlock[];
+  /** 主回复去 DELEGATE 后的纯叙述（有子任务时由网关下发，用于替代 content 展示） */
+  mainReplyClean?: string;
+  /** 主 agent 对子任务结果的综合回复（有子任务时由网关下发） */
+  summary?: string;
   createdAt: number;
 }
 

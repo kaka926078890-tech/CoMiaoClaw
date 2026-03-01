@@ -29,6 +29,12 @@ alwaysApply: true
 - **API 契约优先**：网关与前端之间的接口（如 `POST /chat` 的请求/响应）以契约为准；类型定义与文档先行，实现可变。后端 API 变更时先更新类型/文档，再改调用方。
 - **Git 提交**：按 `.cursor/rules/git-commit.mdc` 执行（粒度、message 格式、提交前自检）。
 
+## 验证与重启
+
+- 修改完代码后，**涉及网关、前端或全栈联调**需要验证时，须使用 **script 的命令**重启后再验证，不要仅在单进程下启动或手动起多个终端。
+- 流程：在项目根目录执行 `./script/restart.sh`（或先 `./script/stop.sh` 再 `./script/start.sh`），待网关(3000)与前端(5173)就绪后，再进行接口或页面验证。
+- 日志位置：`script/logs/gateway.log`、`script/logs/frontend.log`；验证失败时可据此排查。
+
 ## 总结命令与记忆文件夹
 
 - **记忆文件夹**：`memory/`，用于存放每次对话的压缩上下文总结。

@@ -1,21 +1,71 @@
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
+@import "tailwindcss";
 
-html {
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  font-size: 16px;
-  line-height: 1.5;
-  color: #1a1a1a;
-}
-
-body {
-  margin: 0;
-  background: #f0f0f0;
+:root {
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-border-hover: rgba(0, 0, 0, 0.1);
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+  --color-primary-muted: #eff6ff;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --color-text-subtle: #9ca3af;
+  --color-error-bg: #fef2f2;
+  --color-error-text: #dc2626;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-soft: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-sidebar: 2px 0 12px rgba(0, 0, 0, 0.04);
+  --shadow-header: 0 1px 0 rgba(0, 0, 0, 0.05);
+  --shadow-input: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-input-focus: 0 0 0 1px var(--color-primary), 0 2px 8px rgba(37, 99, 235, 0.12);
+  --shadow-panel: 0 4px 20px rgba(0, 0, 0, 0.08);
+  --shadow-bubble: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
 #root {
-  min-height: 100vh;
+  height: 100vh;
 }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 滚动条 */
+.overflow-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.overflow-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.12);
+  border-radius: 4px;
+}
+.overflow-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+/* Markdown 渲染（消息气泡内） */
+.prose p { margin: 0.5em 0; }
+.prose p:first-child { margin-top: 0; }
+.prose p:last-child { margin-bottom: 0; }
+.prose ul, .prose ol { margin: 0.5em 0; padding-left: 1.5em; }
+.prose li { margin: 0.25em 0; }
+.prose pre { margin: 0.75em 0; padding: 1em; border-radius: var(--radius-md); background: rgba(0,0,0,0.05); overflow-x-auto; font-size: 0.9em; }
+.prose code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+.prose pre code { padding: 0; background: none; }
+.prose strong { font-weight: 600; }
+.prose a { color: var(--color-primary); text-decoration: underline; }
+.prose h1, .prose h2, .prose h3 { font-weight: 600; margin: 0.75em 0 0.35em; }
+.prose blockquote { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid var(--color-border); color: var(--color-text-muted); }

@@ -34,5 +34,8 @@ pnpm-debug.log*
 # Vite
 frontend/node_modules/.vite/
 
+# 跨对话记忆：真实记忆不提交
+gateway/data/memory.md
+
 # Optional: keep .env.example tracked
 !.env.example

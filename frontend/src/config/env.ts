@@ -25,9 +25,32 @@ export function getChatStreamUrl(): string {
   return `${base}${config.chatPath}/stream`;
 }
 
+export function getMemoryUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/memory`;
+}
+
+export function getSessionClearUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/session/clear`;
+}
+
 function getConfigUrl(): string {
   const base = config.gatewayOrigin || "";
   return `${base}/config`;
+}
+
+export function getModelsUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/models`;
+}
+
+/** 拉取可用模型列表（供下拉选择） */
+export async function fetchModels(): Promise<string[]> {
+  const res = await fetch(getModelsUrl());
+  if (!res.ok) throw new Error(`模型列表请求失败 ${res.status}`);
+  const data = (await res.json()) as { models?: string[] };
+  return Array.isArray(data.models) ? data.models : [];
 }
 
 export interface GatewayConfig {

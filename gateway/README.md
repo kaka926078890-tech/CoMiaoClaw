@@ -9,8 +9,15 @@
 - `OLLAMA_MODEL`：模型名，如 `deepseek-r1:8b`、`qwen2.5-coder:7b`。
 - 可选 `PORT`：网关监听端口，默认 `3000`。
 - 可选 `OLLAMA_HOST`：Ollama 地址，默认 `http://127.0.0.1:11434`。
+- 可选 `MEMORY_PATH`、`PERSONA_PATH`：记忆与人设文件路径，默认 `gateway/data/memory.md`、`gateway/data/persona.md`。
+- 可选 `MEMORY_INJECT_COUNT`、`MEMORY_INJECT_MAX_CHARS`、`MEMORY_ENTRY_MAX_CHARS`：读记忆条数(默认 10)、注入总字符上限(默认 2000)、写记忆单条截断(默认 80)。
 
 网关启动时从根目录加载 `.env`，并暴露 `GET /config` 供前端拉取当前模型等配置。
+
+## 跨对话记忆与人设
+
+- **记忆**：每轮对话结束后会向 `gateway/data/memory.md`（或 `MEMORY_PATH`）追加一段；调用模型前会注入最近 N 段记忆（条数/总长见上）。
+- **人设**：若存在 `gateway/data/persona.md`（或 `PERSONA_PATH`），会在每次请求前读入并拼入 system。可复制 `gateway/data/persona.md.example` 为 `persona.md` 并编辑。
 
 ## 运行前
 
