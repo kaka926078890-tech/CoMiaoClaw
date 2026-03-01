@@ -1,5 +1,5 @@
 import type { ChatRequest, ChatResponse } from "@/types/chat";
-import { getChatUrl, getChatStreamUrl, getGatewayConfig } from "@/config/env";
+import { getChatUrl, getChatStreamUrl, getGatewayConfig, getMemoryUrl, getSessionClearUrl } from "@/config/env";
 
 export interface SendMessageResult {
   success: true;
@@ -54,31 +54,44 @@ export async function sendMessage(message: string): Promise<SendMessageOutcome> 
 
 export function sendMessageStreaming(
   message: string,
-  onChunk: (text: string) => void,
-  onDone: () => void,
-  onError: (err: string) => void
+  callbacks: {
+    onThinking?: (text: string) => void;
+    onChunk: (text: string) => void;
+    onDone: () => void;
+    onError: (err: string) => void;
+    onSubThinking?: (role: string, thinking: string) => void;
+    onSubChunk?: (role: string, content: string) => void;
+    onSubDone?: (role: string) => void;
+    onMainReplyClean?: (content: string) => void;
+    onSummary?: (content: string) => void;
+  },
+  model?: string
 ): void {
-  getGatewayConfig()
-    .then((cfg) => {
+  const getBody = () =>
+    model
+      ? Promise.resolve({ message, model })
+      : getGatewayConfig().then((cfg) => ({
+          message,
+          ...(cfg.ollamaModel ? { model: cfg.ollamaModel } : {}),
+        }));
+  getBody()
+    .then((body) => {
       const url = getChatStreamUrl();
-      const body: ChatRequest = {
-        message,
-        ...(cfg.ollamaModel ? { model: cfg.ollamaModel } : {}),
-      };
       return fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  })
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    })
     .then(async (res) => {
       if (!res.ok) {
         const text = await res.text();
-        onError(`请求失败 ${res.status}: ${text || res.statusText}`);
+        callbacks.onError(`请求失败 ${res.status}: ${text || res.statusText}`);
         return;
       }
       const reader = res.body?.getReader();
       if (!reader) {
-        onError("响应无 body");
+        callbacks.onError("响应无 body");
         return;
       }
       const decoder = new TextDecoder();
@@ -94,16 +107,36 @@ export function sendMessageStreaming(
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
           const dataStr = trimmed.slice(6);
           if (dataStr === "[DONE]") {
-            onDone();
+            callbacks.onDone();
             return;
           }
           try {
-            const data = JSON.parse(dataStr) as { chunk?: string; error?: string };
+            const data = JSON.parse(dataStr) as {
+              chunk?: string;
+              thinking?: string;
+              error?: string;
+              type?: string;
+              role?: string;
+              content?: string;
+            };
             if (data.error) {
-              onError(data.error);
+              callbacks.onError(data.error);
               return;
             }
-            if (typeof data.chunk === "string") onChunk(data.chunk);
+            if (data.type === "sub_thinking" && typeof data.role === "string" && typeof data.thinking === "string" && callbacks.onSubThinking)
+              callbacks.onSubThinking(data.role, data.thinking);
+            else if (data.type === "sub_chunk" && typeof data.role === "string" && typeof data.chunk === "string" && callbacks.onSubChunk)
+              callbacks.onSubChunk(data.role, data.chunk);
+            else if (data.type === "sub_done" && typeof data.role === "string" && callbacks.onSubDone)
+              callbacks.onSubDone(data.role);
+            else if (data.type === "main_reply_clean" && typeof data.content === "string" && callbacks.onMainReplyClean)
+              callbacks.onMainReplyClean(data.content);
+            else if (data.type === "summary" && typeof data.content === "string" && callbacks.onSummary)
+              callbacks.onSummary(data.content);
+            else {
+              if (typeof data.thinking === "string" && callbacks.onThinking) callbacks.onThinking(data.thinking);
+              if (typeof data.chunk === "string") callbacks.onChunk(data.chunk);
+            }
           } catch {
             // skip malformed
           }
@@ -112,26 +145,58 @@ export function sendMessageStreaming(
       if (buffer.trim().startsWith("data: ")) {
         const dataStr = buffer.trim().slice(6);
         if (dataStr === "[DONE]") {
-          onDone();
+          callbacks.onDone();
           return;
         }
         try {
-          const data = JSON.parse(dataStr) as { chunk?: string; error?: string };
-          if (data.error) onError(data.error);
-          else if (typeof data.chunk === "string") onChunk(data.chunk);
+          const data = JSON.parse(dataStr) as {
+            chunk?: string;
+            thinking?: string;
+            error?: string;
+            type?: string;
+            role?: string;
+            content?: string;
+          };
+          if (data.error) callbacks.onError(data.error);
+          else if (data.type === "sub_thinking" && typeof data.role === "string" && typeof data.thinking === "string" && callbacks.onSubThinking)
+            callbacks.onSubThinking(data.role, data.thinking);
+          else if (data.type === "sub_chunk" && typeof data.role === "string" && typeof data.chunk === "string" && callbacks.onSubChunk)
+            callbacks.onSubChunk(data.role, data.chunk);
+          else if (data.type === "sub_done" && typeof data.role === "string" && callbacks.onSubDone)
+            callbacks.onSubDone(data.role);
+          else if (data.type === "main_reply_clean" && typeof data.content === "string" && callbacks.onMainReplyClean)
+            callbacks.onMainReplyClean(data.content);
+          else if (data.type === "summary" && typeof data.content === "string" && callbacks.onSummary)
+            callbacks.onSummary(data.content);
+          else {
+            if (typeof data.thinking === "string" && callbacks.onThinking) callbacks.onThinking(data.thinking);
+            if (typeof data.chunk === "string") callbacks.onChunk(data.chunk);
+          }
         } catch {
           // skip
         }
       }
-      onDone();
+      callbacks.onDone();
     })
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
-      onError(`网络错误: ${msg}`);
-    });
+      callbacks.onError(`网络错误: ${msg}`);
     })
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
-      onError(`获取配置失败: ${msg}`);
+      callbacks.onError(`获取配置失败: ${msg}`);
     });
+}
+
+/** 拉取记忆文件原始内容（历史记录页） */
+export async function fetchMemoryContent(): Promise<string> {
+  const res = await fetch(getMemoryUrl());
+  if (!res.ok) throw new Error(`记忆请求失败 ${res.status}`);
+  return res.text();
+}
+
+/** 清空网关当前会话（记忆文件不变），用于新启对话 */
+export async function clearSession(): Promise<void> {
+  const res = await fetch(getSessionClearUrl(), { method: "POST" });
+  if (!res.ok) throw new Error(`清空会话失败 ${res.status}`);
 }

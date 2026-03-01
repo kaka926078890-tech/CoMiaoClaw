@@ -18,10 +18,10 @@ interface OllamaChatResponse {
   error?: string;
 }
 
-/** Ollama 流式 NDJSON 每行（兼容 response 与 message.content） */
 interface OllamaStreamChunk {
   response?: string;
-  message?: { role?: string; content?: string };
+  thinking?: string;
+  message?: { role?: string; content?: string; thinking?: string };
   done?: boolean;
   error?: string;
 }
@@ -71,17 +71,24 @@ export async function chatWithOllama(
   return content;
 }
 
+export interface StreamCallbacks {
+  onThinking?: (text: string) => void;
+  onChunk: (text: string) => void;
+}
+
 export async function streamChatWithOllama(
   messages: OllamaMessage[],
-  onChunk: (text: string) => void,
+  callbacks: StreamCallbacks,
   modelOverride?: string
 ): Promise<void> {
+  const { onThinking, onChunk } = callbacks;
   const model = modelOverride ?? config.ollamaModel;
   const url = `${config.ollamaHost}/api/chat`;
   const body = {
     model,
     messages,
     stream: true,
+    think: true,
   };
 
   const res = await fetch(url, {
@@ -112,8 +119,10 @@ export async function streamChatWithOllama(
       try {
         const data = JSON.parse(trimmed) as OllamaStreamChunk;
         if (data.error) throw new Error(data.error);
-        const text = data.response ?? data.message?.content;
-        if (typeof text === "string") onChunk(text);
+        const thinking = data.message?.thinking ?? data.thinking;
+        const content = data.response ?? data.message?.content;
+        if (typeof thinking === "string" && onThinking) onThinking(thinking);
+        if (typeof content === "string") onChunk(content);
       } catch (e) {
         if (e instanceof SyntaxError) continue;
         throw e;
@@ -124,8 +133,10 @@ export async function streamChatWithOllama(
     try {
       const data = JSON.parse(buffer.trim()) as OllamaStreamChunk;
       if (data.error) throw new Error(data.error);
-      const text = data.response ?? data.message?.content;
-      if (typeof text === "string") onChunk(text);
+      const thinking = data.message?.thinking ?? data.thinking;
+      const content = data.response ?? data.message?.content;
+      if (typeof thinking === "string" && onThinking) onThinking(thinking);
+      if (typeof content === "string") onChunk(content);
     } catch (e) {
       if (!(e instanceof SyntaxError)) throw e;
     }
