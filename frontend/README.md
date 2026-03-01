@@ -22,7 +22,7 @@ npm run dev
 ## 环境变量
 
 - `VITE_GATEWAY_ORIGIN`：网关基础 URL，留空则用当前 origin（依赖 dev proxy）。
-- `VITE_OLLAMA_MODEL`：Ollama 模型名（如 `qwen2.5-coder:7b`），留空则使用网关端默认；设置后会在每次请求中传给网关。
+- 模型名等统一在**项目根目录 `.env`** 配置，前端通过网关 `GET /config` 拉取，无需在此单独配置。
 
 ## 构建
 

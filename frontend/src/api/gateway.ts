@@ -1,5 +1,5 @@
 import type { ChatRequest, ChatResponse } from "@/types/chat";
-import { config, getChatUrl, getChatStreamUrl } from "@/config/env";
+import { getChatUrl, getChatStreamUrl, getGatewayConfig } from "@/config/env";
 
 export interface SendMessageResult {
   success: true;
@@ -18,10 +18,11 @@ export type SendMessageOutcome = SendMessageResult | SendMessageError;
  * 网关约定：body { message }, response { reply }。
  */
 export async function sendMessage(message: string): Promise<SendMessageOutcome> {
+  const cfg = await getGatewayConfig();
   const url = getChatUrl();
   const body: ChatRequest = {
     message,
-    ...(config.ollamaModel ? { model: config.ollamaModel } : {}),
+    ...(cfg.ollamaModel ? { model: cfg.ollamaModel } : {}),
   };
 
   try {
@@ -57,12 +58,14 @@ export function sendMessageStreaming(
   onDone: () => void,
   onError: (err: string) => void
 ): void {
-  const url = getChatStreamUrl();
-  const body: ChatRequest = {
-    message,
-    ...(config.ollamaModel ? { model: config.ollamaModel } : {}),
-  };
-  fetch(url, {
+  getGatewayConfig()
+    .then((cfg) => {
+      const url = getChatStreamUrl();
+      const body: ChatRequest = {
+        message,
+        ...(cfg.ollamaModel ? { model: cfg.ollamaModel } : {}),
+      };
+      return fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -125,5 +128,10 @@ export function sendMessageStreaming(
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
       onError(`网络错误: ${msg}`);
+    });
+    })
+    .catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      onError(`获取配置失败: ${msg}`);
     });
 }

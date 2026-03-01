@@ -1,3 +1,4 @@
+import "./loadenv.js";
 import express, { Request, Response } from "express";
 import { config } from "./config.js";
 import { chatWithOllama, streamChatWithOllama } from "./ollama.js";
@@ -5,6 +6,11 @@ import type { OllamaMessage } from "./ollama.js";
 
 const app = express();
 app.use(express.json());
+
+/** GET /config：返回当前网关配置，前端由此统一获取模型等（单一配置源） */
+app.get("/config", (_req: Request, res: Response) => {
+  res.json({ ollamaModel: config.ollamaModel });
+});
 
 /** 单会话内存：MVP 仅维护当前对话消息列表 */
 const sessionMessages: OllamaMessage[] = [];
