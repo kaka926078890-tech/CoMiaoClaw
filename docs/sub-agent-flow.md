@@ -6,8 +6,8 @@
 
 当前实现里，多个 DELEGATE（如 researcher + coder）是**串行**执行的，不是并行：
 
-- 在 `gateway/src/delegate.ts` 的 `runSubAgents` / `runSubAgentsStreaming` 中，用 **`for` 循环** 依次处理每个 `{ task, role }`，每次 **`await`** 该子 agent 完成后再处理下一个。
-- 顺序与主 agent 回复里 DELEGATE 的出现顺序一致：先 researcher，再 coder。
+- 在 `gateway/src/delegate.ts` 的 `runSubAgents` / `runSubAgentsStreaming` 中，按**依赖分层**：同一层内的多个子任务用 **`Promise.all`** 并行执行，不同层之间串行（有依赖的等前置层完成后再跑）。
+- 解析仅识别标准格式 `DELEGATE:`；若主 agent 输出错误格式（如 `DELEG:`），应追究模型/人设/示例原因并修正，不做格式兜底。
 
 若希望**无依赖时并行**以缩短总耗时，可后续改为对无依赖的子任务用 `Promise.all` 并发执行，有依赖的仍按 DAG 串行（参见 `docs/openclaw-delegate-questions.md`）。
 
@@ -43,7 +43,7 @@
     ↓
 网关：发「[正在执行子任务…]」「[子任务结果]」等占位 chunk（可选）
     ↓
-对每个 DELEGATE 项**串行**：
+对每个 DELEGATE 项按层执行（**同层并行**、**跨层串行**）：
     子 agent = 同模型，system = getSubPersona(role)，messages = [system, user: task]
     非流式：chatWithOllama → 得到一段 subReply，拼入 subResult
     流式：streamChatWithOllama → 通过 onEvent 发 sub_thinking / sub_chunk / sub_done，同时累积 content 拼入 subResult
@@ -60,16 +60,16 @@
 | 环节           | 文件 / 位置 | 职责 |
 |----------------|-------------|------|
 | 解析派发       | `gateway/src/delegate.ts` | `parseDelegate(reply)` 提取 `DELEGATE: 任务 \| 角色`；`stripDelegateFromReply` 清洗主回复 |
-| 子角色 system  | `gateway/src/subpersona.ts` + `gateway/data/subpersona/<role>.md` | `getSubPersona(role)` 返回子 agent 的 system |
+| 子角色 system  | `gateway/src/subpersona.ts` + `gateway/data/agents/<role>.md`（或 `subpersona/` 兼容） | `getSubAgentSystem(role)` 返回子 agent 的 system（角色 md + 可选 TOOLS.md） |
 | 子 agent 执行  | `gateway/src/delegate.ts` | `runSubAgents`（非流式串行）、`runSubAgentsStreaming`（流式串行，带 sub_* 事件） |
 | 会话与再调主   | `gateway/src/index.ts` | POST /chat、POST /chat/stream：拼 subResult、写会话、再调主 agent 得 finalReply |
-| 主 agent 人设   | `gateway/data/persona.md` | 约定 DELEGATE 格式、子角色名，以及「收到 [子任务结果] 时只做综合、不再次 DELEGATE」 |
+| 主 agent 人设   | `gateway/data/AGENTS.md`（或 persona.md 兼容） | 约定 DELEGATE 格式、子角色由 bootstrap 动态注入，以及「收到 [子任务结果] 时只做综合、不再次 DELEGATE」 |
 
 ### 小结
 
-- **子 agent**：当前是**串行**执行；主 agent **会**在子任务全部完成后，根据「[子任务结果]」再调一次并给出总结（综合回复）。
-- **流程**：主 agent 输出 DELEGATE → 网关解析 → 串行跑子 agent（同模型、不同 system）→ 子结果拼成一段写回会话 → 再调主 agent → 综合回复返回/推流。  
-更细的「并行 / 依赖 / 动态子角色」等开放问题见 `docs/openclaw-delegate-questions.md`。
+- **子 agent**：**同层并行**、**跨层串行**（无依赖时多子任务并行）；主 agent **会**在子任务全部完成后，根据「[子任务结果]」再调一次并给出总结（综合回复）。
+- **流程**：主 agent 输出 DELEGATE 行（标准格式）→ 网关解析 → 按层并行跑子 agent（同模型、不同 system）→ 子结果拼成一段写回会话 → 再调主 agent → 综合回复返回/推流。  
+更细的「依赖 / 动态子角色」等开放问题见 `docs/openclaw-delegate-questions.md`。
 
 ---
 
