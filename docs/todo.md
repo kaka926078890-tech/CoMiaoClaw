@@ -35,11 +35,12 @@
 - ~~- [ ] 阶段一：工作区与文件名对齐（workspace、AGENTS.md、MEMORY.md、agents/、bootstrap 注入顺序）~~ 完成：2026-03-02
 - ~~- [ ] 阶段二：派发流程与主/子 agent 设定（AGENTS.md 原则驱动、动态子角色列表注入、子 agent system + TOOLS.md）~~ 完成：2026-03-02
 - ~~- [ ] 阶段三：Skill 机制（workspace/skills、SKILL.md 格式、技能列表注入；read 工具为方案 A 文档约定）~~ 完成：2026-03-02
+- ~~- [ ] Skill 能力接入与使用流程：SKILL: / FETCH_URL: 协议、frontmatter 解析、注入再调一轮、测试 skill web-fetch/url-scraper~~ 完成：2026-03-02
 
 ### P1：工具与多会话
 
 - [ ] 跨对话记忆：为会话/用户维护记忆条目，请求前注入相关记忆，可选向量检索。
-- [ ] 技能/工具：~~workspace/skills + SKILL.md + 列表注入已实现；~~ read 工具（按需加载 SKILL.md）待 Ollama function call 或方案 B。
+- [ ] 技能/工具：~~workspace/skills + SKILL.md + frontmatter + 列表注入已实现；SKILL:/FETCH_URL: 协议已实现（加载全文、联网抓取、注入再调一轮）。~~ read 工具（按需加载 SKILL.md）待 Ollama function call 或方案 B。
 - [ ] 多会话 / 会话管理：按 session_id 隔离上下文与记忆，可选会话列表与切换。
 
 ### P1：控制台
@@ -69,6 +70,7 @@
 - ~~DAG 分层执行（层内并行、层间串行、下游注入上游结果）~~ 完成：2026-03-02
 - ~~环检测降级串行、persona 说明更新~~ 完成：2026-03-02
 - ~~OpenClaw 对齐：工作区与文件名、bootstrap、派发流程与动态子角色、Skill 列表注入~~ 完成：2026-03-02
+- ~~Skill 能力接入与使用流程：SKILL:/FETCH_URL: 协议、frontmatter、注入再调一轮、测试 skill web-fetch/url-scraper~~ 完成：2026-03-02
 
 ---
 

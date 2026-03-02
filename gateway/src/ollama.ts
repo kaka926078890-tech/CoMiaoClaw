@@ -157,9 +157,13 @@ export async function streamChatWithOllama(
   const decoder = new TextDecoder();
   let buffer = "";
   let fullContent = "";
+  let firstChunk = true;
   while (true) {
     const { done, value } = await reader.read();
-    if (done) break;
+    if (done) {
+      console.log("[ollama] streamChatWithOllama 流读取结束", { fullContentLength: fullContent.length });
+      break;
+    }
     buffer += decoder.decode(value, { stream: true });
     const lines = buffer.split("\n");
     buffer = lines.pop() ?? "";
@@ -173,6 +177,10 @@ export async function streamChatWithOllama(
         const content = data.response ?? data.message?.content;
         if (typeof thinking === "string" && onThinking) onThinking(thinking);
         if (typeof content === "string") {
+          if (firstChunk) {
+            console.log("[ollama] streamChatWithOllama 收到首块 content", { length: content.length, preview: content.slice(0, 80) });
+            firstChunk = false;
+          }
           fullContent += content;
           onChunk(content);
         }

@@ -102,9 +102,10 @@ export async function runSubAgents(
   delegates: DelegateItem[],
   modelOverride?: string
 ): Promise<string> {
+  console.log("[delegate] runSubAgents 入口", { delegatesCount: delegates.length, delegates });
   const parts: string[] = new Array(delegates.length);
   const layers = buildLayers(delegates);
-  console.log("[delegate] runSubAgents", { delegatesCount: delegates.length, delegates, layers });
+  console.log("[delegate] runSubAgents 分层", { layers });
   for (let li = 0; li < layers.length; li++) {
     const layer = layers[li];
     console.log("[delegate] runSubAgents layer", { layerIndex: li, indices: layer });
@@ -137,9 +138,10 @@ export async function runSubAgentsStreaming(
   modelOverride: string | undefined,
   onEvent: (ev: SubAgentStreamEvent) => void
 ): Promise<string> {
+  console.log("[delegate] runSubAgentsStreaming 入口", { delegatesCount: delegates.length, delegates });
   const parts: string[] = new Array(delegates.length);
   const layers = buildLayers(delegates);
-  console.log("[delegate] runSubAgentsStreaming", { delegatesCount: delegates.length, delegates, layers });
+  console.log("[delegate] runSubAgentsStreaming 分层", { layers });
   for (let li = 0; li < layers.length; li++) {
     const layer = layers[li];
     console.log("[delegate] runSubAgentsStreaming layer", { layerIndex: li, indices: layer });

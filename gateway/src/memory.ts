@@ -27,12 +27,16 @@ export function getMemoryRaw(): string {
  */
 export function loadMemory(): string {
   const filePath = config.memoryPath;
-  if (!fs.existsSync(filePath)) return "";
+  if (!fs.existsSync(filePath)) {
+    console.log("[memory] loadMemory 文件不存在", { path: filePath });
+    return "";
+  }
 
   let raw: string;
   try {
     raw = fs.readFileSync(filePath, "utf-8");
-  } catch {
+  } catch (e) {
+    console.log("[memory] loadMemory 读取失败", { path: filePath, error: e });
     return "";
   }
 
@@ -46,6 +50,7 @@ export function loadMemory(): string {
     text = text.slice(-config.memoryInjectMaxChars);
   }
   if (!text) return "";
+  console.log("[memory] loadMemory 完成", { segmentsCount: segments.length, recentCount: recent.length, textLength: text.length });
   return MEMORY_PREFIX + text;
 }
 
@@ -62,6 +67,7 @@ export function appendMemory(userContent: string, assistantContent: string): voi
   const dir = path.dirname(config.memoryPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(config.memoryPath, block, "utf-8");
+  console.log("[memory] appendMemory 已写入", { path: config.memoryPath, blockLength: block.length, userLen: user.length, assistantLen: assistant.length });
 }
 
 /**

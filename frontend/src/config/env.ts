@@ -66,15 +66,22 @@ let cached: Promise<GatewayConfig> | null = null;
 
 /** 从网关拉取配置（模型等），单一配置源，结果缓存 */
 export function getGatewayConfig(): Promise<GatewayConfig> {
-  if (cached) return cached;
+  if (cached) {
+    console.log("[frontend] getGatewayConfig 使用缓存");
+    return cached;
+  }
   const url = getConfigUrl();
+  console.log("[frontend] getGatewayConfig 请求", { url });
   cached = fetch(url)
     .then((r) => {
+      console.log("[frontend] getGatewayConfig 响应", { status: r.status, ok: r.ok });
       if (!r.ok) throw new Error(`配置请求失败 ${r.status}`);
       return r.json() as Promise<GatewayConfig>;
     })
-    .then((data) => ({
-      ollamaModel: typeof data.ollamaModel === "string" ? data.ollamaModel : "",
-    }));
+    .then((data) => {
+      const out = { ollamaModel: typeof data.ollamaModel === "string" ? data.ollamaModel : "" };
+      console.log("[frontend] getGatewayConfig 解析完成", out);
+      return out;
+    });
   return cached;
 }

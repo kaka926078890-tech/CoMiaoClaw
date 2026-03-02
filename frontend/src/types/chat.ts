@@ -19,6 +19,8 @@ export interface ChatMessage {
   mainReplyClean?: string;
   /** 主 agent 对子任务结果的综合回复（有子任务时由网关下发） */
   summary?: string;
+  /** 本条回复触发的协议：已加载技能、已抓取 URL（由流式事件 skill_loaded / fetch_url_done 填充） */
+  protocolUsed?: { skills?: string[]; urls?: string[] };
   createdAt: number;
 }
 

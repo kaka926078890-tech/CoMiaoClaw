@@ -85,6 +85,15 @@ const BOOTSTRAP_TOTAL_MAX_CHARS =
     ? parseInt(process.env.BOOTSTRAP_TOTAL_MAX_CHARS, 10)
     : 150000;
 
+const FETCH_URL_TIMEOUT_MS =
+  typeof process.env.FETCH_URL_TIMEOUT_MS === "string"
+    ? parseInt(process.env.FETCH_URL_TIMEOUT_MS, 10)
+    : 15000;
+const FETCH_URL_MAX_BODY =
+  typeof process.env.FETCH_URL_MAX_BODY === "string"
+    ? parseInt(process.env.FETCH_URL_MAX_BODY, 10)
+    : 200000;
+
 export const config = {
   port: Number.isFinite(PORT) ? PORT : 3000,
   ollamaHost: OLLAMA_HOST,
@@ -106,4 +115,6 @@ export const config = {
   memoryEntryMaxChars: Number.isFinite(MEMORY_ENTRY_MAX_CHARS) && MEMORY_ENTRY_MAX_CHARS > 0 ? MEMORY_ENTRY_MAX_CHARS : 80,
   bootstrapMaxChars: Number.isFinite(BOOTSTRAP_MAX_CHARS) && BOOTSTRAP_MAX_CHARS > 0 ? BOOTSTRAP_MAX_CHARS : 20000,
   bootstrapTotalMaxChars: Number.isFinite(BOOTSTRAP_TOTAL_MAX_CHARS) && BOOTSTRAP_TOTAL_MAX_CHARS > 0 ? BOOTSTRAP_TOTAL_MAX_CHARS : 150000,
+  fetchUrlTimeoutMs: Number.isFinite(FETCH_URL_TIMEOUT_MS) && FETCH_URL_TIMEOUT_MS > 0 ? FETCH_URL_TIMEOUT_MS : 15000,
+  fetchUrlMaxBody: Number.isFinite(FETCH_URL_MAX_BODY) && FETCH_URL_MAX_BODY > 0 ? FETCH_URL_MAX_BODY : 200000,
 } as const;

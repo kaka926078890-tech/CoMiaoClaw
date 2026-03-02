@@ -132,6 +132,36 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
               prev.map((m) => (m.id === assistantId ? { ...m, summary: content } : m))
             );
           },
+          onSkillLoaded: (skills) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      protocolUsed: {
+                        ...m.protocolUsed,
+                        skills: [...(m.protocolUsed?.skills ?? []), ...skills],
+                      },
+                    }
+                  : m
+              )
+            );
+          },
+          onFetchUrlDone: (urls) => {
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === assistantId
+                  ? {
+                      ...m,
+                      protocolUsed: {
+                        ...m.protocolUsed,
+                        urls: [...(m.protocolUsed?.urls ?? []), ...urls],
+                      },
+                    }
+                  : m
+              )
+            );
+          },
           onDone: () => {
             setMessages((prev) => {
               if (prev.some((m) => m.id === assistantId)) return prev;

@@ -66,6 +66,17 @@ export function MessageBubble({ message, onResend }: MessageBubbleProps) {
           {isUser ? "你" : "Claw"}
         </span>
         <div className="flex flex-col gap-2">
+          {!isUser && (message.protocolUsed?.skills?.length ?? 0) + (message.protocolUsed?.urls?.length ?? 0) > 0 && (
+            <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-xs text-[var(--color-text-muted)]">
+              {message.protocolUsed?.skills?.length ? (
+                <span>已加载技能：{message.protocolUsed.skills.join("、")}</span>
+              ) : null}
+              {message.protocolUsed?.skills?.length && message.protocolUsed?.urls?.length ? "；" : null}
+              {message.protocolUsed?.urls?.length ? (
+                <span>已抓取 URL：{message.protocolUsed.urls.length} 个</span>
+              ) : null}
+            </div>
+          )}
           {!isUser && message.thinking && (
             <div className="rounded-[var(--radius-md)] border border-[var(--color-border)] bg-[var(--color-bg)] overflow-hidden">
               <button

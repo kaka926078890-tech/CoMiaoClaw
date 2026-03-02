@@ -44,6 +44,17 @@ function getAgentListBlock(): string {
   return "**当前子角色及其能力**（仅对以下角色可派发）：\n" + lines.join("\n");
 }
 
+function parseSkillFrontmatter(raw: string): { name?: string; description?: string } {
+  const match = raw.match(/^---\s*\n([\s\S]*?)\n---/);
+  if (!match) return {};
+  const block = match[1];
+  const nameMatch = block.match(/^name:\s*(.+)$/m);
+  const descMatch = block.match(/^description:\s*(.+)$/m);
+  const name = nameMatch?.[1]?.trim();
+  const description = descMatch?.[1]?.trim();
+  return { name, description };
+}
+
 function getSkillsListBlock(): string {
   const dir = config.skillsDir;
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return "";
@@ -56,16 +67,18 @@ function getSkillsListBlock(): string {
     if (!fs.existsSync(skillPath) || !fs.statSync(skillPath).isFile()) continue;
     try {
       const raw = fs.readFileSync(skillPath, "utf-8").trim();
-      const firstLine = raw.split(/\n/)[0]?.trim() ?? e.name;
-      const rest = raw.slice(firstLine.length).trim().replace(/\s+/g, " ").slice(0, descMax);
-      const desc = rest ? rest + (rest.length >= descMax ? "…" : "") : "（无描述）";
-      lines.push(`- **${e.name}**：${firstLine} ${desc}`);
+      const { name: fmName, description: fmDesc } = parseSkillFrontmatter(raw);
+      const body = raw.replace(/^---\s*\n[\s\S]*?\n---\s*\n?/, "").trim();
+      const name = fmName ?? body.split(/\n/)[0]?.trim().replace(/^#\s*/, "") ?? e.name;
+      const descSource = fmDesc ?? body.slice(body.indexOf("\n") + 1).trim().replace(/\s+/g, " ").slice(0, descMax);
+      const desc = descSource ? descSource + (descSource.length >= descMax ? "…" : "") : "（无描述）";
+      lines.push(`- **${e.name}**：${name} ${desc}`);
     } catch {
       lines.push(`- **${e.name}**：（未读）`);
     }
   }
   if (lines.length === 0) return "";
-  return "**可用技能**（需要时可由用户或后续 read 工具加载 SKILL.md 全文）：\n" + lines.join("\n");
+  return "**可用技能**（需要某技能时在回复中写 `SKILL: <技能名>`，系统会加载全文并再让你回复一轮；有 DELEGATE 时勿混用 SKILL）：\n" + lines.join("\n");
 }
 
 const BOOTSTRAP_ORDER: { key: string; getContent: () => string }[] = [
@@ -95,14 +108,29 @@ function capTotal(parts: string[], totalMax: number): string {
 }
 
 export function loadBootstrap(): string {
+  console.log("[bootstrap] loadBootstrap 开始");
   const parts: string[] = [];
-  for (const { getContent } of BOOTSTRAP_ORDER) {
+  const keys: string[] = [];
+  for (const { key, getContent } of BOOTSTRAP_ORDER) {
     const content = getContent();
-    if (content) parts.push(content);
+    if (content) {
+      parts.push(content);
+      keys.push(key);
+    }
   }
   const memoryBlock = loadMemory();
-  if (memoryBlock) parts.push(memoryBlock);
+  if (memoryBlock) {
+    parts.push(memoryBlock);
+    keys.push("MEMORY");
+  }
   const combined = parts.join("\n\n");
-  if (combined.length <= config.bootstrapTotalMaxChars) return combined;
-  return capTotal(parts, config.bootstrapTotalMaxChars);
+  const total = combined.length;
+  const capped = total <= config.bootstrapTotalMaxChars ? combined : capTotal(parts, config.bootstrapTotalMaxChars);
+  console.log("[bootstrap] loadBootstrap 完成", {
+    keys,
+    partsCount: parts.length,
+    totalChars: total,
+    cappedChars: capped.length,
+  });
+  return capped;
 }

@@ -60,7 +60,11 @@
 
 ## 技能（Skills）
 
-目录 `workspace/skills/` 下每个子目录可包含 **SKILL.md**，用于描述一项技能（name、description、何时使用等）。网关在 bootstrap 时扫描该目录，将各技能的 name + 描述摘要（约 200 字）拼成**可用技能列表**注入 system，主 agent 可见「有哪些技能」及简短说明。
+目录 `workspace/skills/` 下每个子目录可包含 **SKILL.md**（或 `skill.md`），格式与 ClawHub/OpenClaw 对齐：支持 **YAML frontmatter**（`name`、`description`、`version`、可选 `metadata.openclaw` 等）与正文。网关列表与加载均按此解析。
 
-- **格式**：SKILL.md 首行或标题作为技能名，其余内容作为描述；列表注入时只取摘要，不注入全文。
-- **按需加载**：当前采用**方案 A**——不在 chat 流程中暴露 read 工具，仅通过 system 中的技能列表 + 文案说明「需要时可让用户代为执行或后续通过 read 工具加载 SKILL.md 全文」。若后续 Ollama 支持 function call，可增加 `read(path)` 工具实现按需加载（方案 B）。
+- **Bootstrap 列表**：扫描各子目录的 SKILL.md，优先从 frontmatter 取 `name`/`description`，无则退化为首行/前约 200 字，拼成可用技能列表注入 system。
+- **调用协议**（网关自定义）：
+  - **SKILL: &lt;技能名&gt;**：主 agent 在回复正文中写该行，技能名为 `workspace/skills` 下子目录名；网关读取对应 SKILL.md 全文（可设长度上限），拼成 `[已加载技能：name1, name2]\n\n--- 技能 name1 ---\n{content}\n\n...` 作为一条 user 消息追加，再调一次主 agent 后返回。可多行加载多个技能。
+  - **FETCH_URL: &lt;url&gt;**：主 agent 在回复中写该行（完整 http(s) 地址）；网关 GET 该 URL（超时、User-Agent、body 上限），将响应转为文本（HTML 简单去标签），拼成 `[已获取 URL 内容]\n\n&lt;url&gt;\n\n{内容}` 追加为 user 消息，再调主 agent。用于联网、扒地址。
+- **解析顺序**：DELEGATE 优先；无 DELEGATE 时再解析 SKILL，再解析 FETCH_URL；同轮可同时处理 SKILL 与 FETCH_URL，合并为一条注入再调一轮。
+- **配置**：`FETCH_URL_TIMEOUT_MS`（默认 15000）、`FETCH_URL_MAX_BODY`（默认 200000）；仅允许 http(s)。

@@ -64,9 +64,13 @@ export function sendMessageStreaming(
     onSubDone?: (role: string) => void;
     onMainReplyClean?: (content: string) => void;
     onSummary?: (content: string) => void;
+    onSkillLoaded?: (skills: string[]) => void;
+    onFetchUrlDone?: (urls: string[]) => void;
   },
   model?: string
 ): void {
+  const streamUrl = getChatStreamUrl();
+  console.log("[frontend] sendMessageStreaming 调用", { messageLength: message.length, messagePreview: message.slice(0, 80), url: streamUrl, model });
   const getBody = () =>
     model
       ? Promise.resolve({ message, model })
@@ -76,29 +80,46 @@ export function sendMessageStreaming(
         }));
   getBody()
     .then((body) => {
-      const url = getChatStreamUrl();
-      return fetch(url, {
+      console.log("[frontend] sendMessageStreaming 请求体", body);
+      return fetch(streamUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
     })
     .then(async (res) => {
+      console.log("[frontend] sendMessageStreaming 响应", { status: res.status, ok: res.ok, headers: Object.fromEntries(res.headers.entries()) });
       if (!res.ok) {
         const text = await res.text();
-        callbacks.onError(`请求失败 ${res.status}: ${text || res.statusText}`);
+        let errMsg = text || res.statusText;
+        if (res.status === 409) {
+          try {
+            const j = JSON.parse(text) as { error?: string };
+            if (typeof j.error === "string") errMsg = j.error;
+          } catch {
+            /* use errMsg as is */
+          }
+        }
+        console.log("[frontend] sendMessageStreaming 错误", { status: res.status, errMsg });
+        callbacks.onError(res.status === 409 ? errMsg : `请求失败 ${res.status}: ${errMsg}`);
         return;
       }
       const reader = res.body?.getReader();
       if (!reader) {
+        console.log("[frontend] sendMessageStreaming 无 body");
         callbacks.onError("响应无 body");
         return;
       }
+      console.log("[frontend] sendMessageStreaming 开始读取 SSE 流");
       const decoder = new TextDecoder();
       let buffer = "";
+      let eventCount = 0;
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          console.log("[frontend] sendMessageStreaming 流结束", { eventCount });
+          break;
+        }
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split("\n");
         buffer = lines.pop() ?? "";
@@ -107,6 +128,7 @@ export function sendMessageStreaming(
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
           const dataStr = trimmed.slice(6);
           if (dataStr === "[DONE]") {
+            console.log("[frontend] sendMessageStreaming 收到 [DONE]");
             callbacks.onDone();
             return;
           }
@@ -118,11 +140,18 @@ export function sendMessageStreaming(
               type?: string;
               role?: string;
               content?: string;
+              skills?: string[];
+              urls?: string[];
             };
             if (data.error) {
+              console.log("[frontend] sendMessageStreaming SSE error", data.error);
               callbacks.onError(data.error);
               return;
             }
+            const type = data.type ?? (data.chunk ? "chunk" : data.thinking ? "thinking" : "?");
+            if (eventCount < 5 || type === "summary" || type === "main_reply_clean" || type === "skill_loaded" || type === "fetch_url_done")
+              console.log("[frontend] sendMessageStreaming SSE 事件", { eventCount, type, hasChunk: !!data.chunk, hasThinking: !!data.thinking, contentLen: (data.content as string)?.length });
+            eventCount++;
             if (data.type === "sub_thinking" && typeof data.role === "string" && typeof data.thinking === "string" && callbacks.onSubThinking)
               callbacks.onSubThinking(data.role, data.thinking);
             else if (data.type === "sub_chunk" && typeof data.role === "string" && typeof data.chunk === "string" && callbacks.onSubChunk)
@@ -133,6 +162,10 @@ export function sendMessageStreaming(
               callbacks.onMainReplyClean(data.content);
             else if (data.type === "summary" && typeof data.content === "string" && callbacks.onSummary)
               callbacks.onSummary(data.content);
+            else if (data.type === "skill_loaded" && Array.isArray(data.skills) && callbacks.onSkillLoaded)
+              callbacks.onSkillLoaded(data.skills);
+            else if (data.type === "fetch_url_done" && Array.isArray(data.urls) && callbacks.onFetchUrlDone)
+              callbacks.onFetchUrlDone(data.urls);
             else {
               if (typeof data.thinking === "string" && callbacks.onThinking) callbacks.onThinking(data.thinking);
               if (typeof data.chunk === "string") callbacks.onChunk(data.chunk);
@@ -156,6 +189,8 @@ export function sendMessageStreaming(
             type?: string;
             role?: string;
             content?: string;
+            skills?: string[];
+            urls?: string[];
           };
           if (data.error) callbacks.onError(data.error);
           else if (data.type === "sub_thinking" && typeof data.role === "string" && typeof data.thinking === "string" && callbacks.onSubThinking)
@@ -168,6 +203,10 @@ export function sendMessageStreaming(
             callbacks.onMainReplyClean(data.content);
           else if (data.type === "summary" && typeof data.content === "string" && callbacks.onSummary)
             callbacks.onSummary(data.content);
+          else if (data.type === "skill_loaded" && Array.isArray(data.skills) && callbacks.onSkillLoaded)
+            callbacks.onSkillLoaded(data.skills);
+          else if (data.type === "fetch_url_done" && Array.isArray(data.urls) && callbacks.onFetchUrlDone)
+            callbacks.onFetchUrlDone(data.urls);
           else {
             if (typeof data.thinking === "string" && callbacks.onThinking) callbacks.onThinking(data.thinking);
             if (typeof data.chunk === "string") callbacks.onChunk(data.chunk);
@@ -180,10 +219,12 @@ export function sendMessageStreaming(
     })
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
+      console.log("[frontend] sendMessageStreaming 异常", { error: msg });
       callbacks.onError(`网络错误: ${msg}`);
     })
     .catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
+      console.log("[frontend] sendMessageStreaming 配置/请求异常", { error: msg });
       callbacks.onError(`获取配置失败: ${msg}`);
     });
 }
