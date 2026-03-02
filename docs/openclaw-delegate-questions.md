@@ -6,7 +6,7 @@
 
 ## 1. 子 agent 可否由主 agent 动态创建？
 
-**现状**：子角色是预先配置的（`gateway/data/subpersona/<role>.md`），主 agent 只能在回复里写 `DELEGATE: 任务 | 已存在的角色名`。
+**现状**：子角色是预先配置的（`gateway/data/agents/<role>.md`，或兼容 `subpersona/`），主 agent 只能在回复里写 `DELEGATE: 任务 | 已存在的角色名`。
 
 **疑惑**：子 agent 能不能由主 agent **动态创建**，而不是写死的一套流程化内容？  
 例如：主 agent 根据用户需求临时「定义」一个子角色（名字 + 一段 system 描述），再由网关按该描述拉起一次性子 agent。

@@ -8,9 +8,9 @@
 
 ## 一、当前项目情况简述
 
-- **MVP 已就绪**：本地模型（Ollama）+ 单会话聊天、网关 `POST /chat` 与流式、前端发消息与展示回复。
-- **P0 主/子 agent 已实现**：DELEGATE 解析、子 agent 串行执行、综合阶段再调主 agent、前端主回复/子 agent 思考·结论/综合回复分块展示。
-- **与 OpenClaw 差异**：派发方式为「主回复内 DELEGATE 文本」而非工具 `sessions_spawn`；子 agent 当前串行（OpenClaw 为并行 + 队列）；结果回传为「子结果拼段 + 再调主 agent」而非通告步骤。
+- **已脱离最小 MVP**：以完整主/子 agent 能力为目标，支持 DELEGATE 依赖表达与 DAG 分层调度（层内并行、层间串行）。
+- **P0 主/子 agent 已实现**：DELEGATE 解析、子 agent 执行、综合阶段再调主 agent、前端主回复/子 agent 思考·结论/综合回复分块展示。
+- **本阶段**：扩展 DELEGATE 格式（可选依赖）、按依赖建 DAG、分层执行（无依赖并行，有依赖则下游在上游完成后执行并注入结果）。
 
 ---
 
@@ -18,20 +18,34 @@
 
 ### P0：核心体验与修 bug
 
-- [ ] 综合回复强制为「对子 agent 内容的总结」：避免综合阶段主 agent 再次输出 DELEGATE，加强 system/user 约束或 persona。
-- [ ] 主回复区不展示 DELEGATE 行：有 subAgents 或 summary 时只展示 mainReplyClean；mainReplyClean 为空时展示「已派发子任务。」，不 fallback 到含 DELEGATE 的 content。
-- [ ] 子 agent 流式观感：确保前端在接收 sub_thinking/sub_chunk 时对应子 agent 块可感知（如默认展开或流式期间展开）。
+- ~~- [ ] 综合回复强制为「对子 agent 内容的总结」：避免综合阶段主 agent 再次输出 DELEGATE，加强 system/user 约束或 persona。~~ 完成：2026-03-02
+- ~~- [ ] 主回复区不展示 DELEGATE 行：有 subAgents 或 summary 时只展示 mainReplyClean；mainReplyClean 为空时展示「已派发子任务。」，不 fallback 到含 DELEGATE 的 content。~~ 完成：2026-03-02
+- ~~- [ ] 子 agent 流式观感：确保前端在接收 sub_thinking/sub_chunk 时对应子 agent 块可感知（如默认展开或流式期间展开）。~~ 完成：2026-03-02
 
-### P0：对标 OpenClaw 能力
+### P0：DELEGATE 扩展格式与依赖调度
 
-- [ ] 子 agent 无依赖时并行：多个 DELEGATE 无依赖时用 `Promise.all` 等并行执行，有依赖时保留串行或后续做 DAG。
-- [ ] （可选）DELEGATE 依赖表达：若需「C 依赖 A、B」则扩展格式或协议，网关支持依赖感知调度。
+- ~~- [ ] **扩展格式**：`DELEGATE: 任务 | 角色` 可带可选第三段依赖，如 `| 0,1` 表示依赖第 0、1 条（按出现顺序）；`parseDelegate` 返回带 `deps?: number[]` 的列表。~~ 完成：2026-03-02
+- ~~- [ ] **DAG 分层执行**：根据 `deps` 建图，按层执行——层内并行（`Promise.all`）、层间串行；下游任务执行前注入上游结果到其输入。~~ 完成：2026-03-02
+- ~~- [ ] **兼容**：无第三段或 `deps` 为空视为无依赖，全部进入第 0 层并行；若存在环则降级为串行。~~ 完成：2026-03-02
+
+~~**实现步骤**：① 扩展 `parseDelegate` 与 `DelegateItem`；② `delegate.ts` 内实现 DAG 分层（拓扑/层划分）；③ `runSubAgents` / `runSubAgentsStreaming` 按层并行、层间串行并注入上游结果；④ 更新 persona 说明（可选依赖语法）；⑤ 联调验证（无依赖并行、A/B 并行且 C 依赖 A 和 B）。~~ 完成：2026-03-02
+
+### OpenClaw 对齐（2026-03-02）
+
+- ~~- [ ] 阶段一：工作区与文件名对齐（workspace、AGENTS.md、MEMORY.md、agents/、bootstrap 注入顺序）~~ 完成：2026-03-02
+- ~~- [ ] 阶段二：派发流程与主/子 agent 设定（AGENTS.md 原则驱动、动态子角色列表注入、子 agent system + TOOLS.md）~~ 完成：2026-03-02
+- ~~- [ ] 阶段三：Skill 机制（workspace/skills、SKILL.md 格式、技能列表注入；read 工具为方案 A 文档约定）~~ 完成：2026-03-02
 
 ### P1：工具与多会话
 
 - [ ] 跨对话记忆：为会话/用户维护记忆条目，请求前注入相关记忆，可选向量检索。
-- [ ] 技能/工具：读文件、执行命令等 1～2 个简单工具，与主/子 agent 结合。
+- [ ] 技能/工具：~~workspace/skills + SKILL.md + 列表注入已实现；~~ read 工具（按需加载 SKILL.md）待 Ollama function call 或方案 B。
 - [ ] 多会话 / 会话管理：按 session_id 隔离上下文与记忆，可选会话列表与切换。
+
+### P1：控制台
+
+- [ ] 控制台页面添加工作区文件的编辑与查看：如 AGENTS.md、SOUL.md、MEMORY.md、TOOLS.md、agents/*.md、skills 等，支持在控制台内查看与编辑并落盘到 workspace。
+- [ ] 控制台添加定时任务模块：支持配置与展示定时任务（如记忆整理、心跳等），与网关或 OpenClaw 风格对齐。
 
 ### P2：体验与扩展
 
@@ -48,8 +62,14 @@
 
 ## 三、已完成（保留记录，用删除线 + 完成时间）
 
-（暂无；完成项将移动或标记于此，格式示例：`~~- [x] 某事项~~ 完成：YYYY-MM-DD`）
+- ~~综合回复强制为「对子 agent 内容的总结」~~ 完成：2026-03-02
+- ~~主回复区不展示 DELEGATE 行~~ 完成：2026-03-02
+- ~~子 agent 流式观感~~ 完成：2026-03-02
+- ~~DELEGATE 扩展格式（可选 | 0,1 依赖）~~ 完成：2026-03-02
+- ~~DAG 分层执行（层内并行、层间串行、下游注入上游结果）~~ 完成：2026-03-02
+- ~~环检测降级串行、persona 说明更新~~ 完成：2026-03-02
+- ~~OpenClaw 对齐：工作区与文件名、bootstrap、派发流程与动态子角色、Skill 列表注入~~ 完成：2026-03-02
 
 ---
 
-**最后更新**：2026-03-02
+**最后更新**：2026-03-02（待办新增：控制台文件编辑查看、控制台定时任务模块）

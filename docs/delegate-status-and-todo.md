@@ -9,8 +9,8 @@
 
 | 项目 | 状态 | 说明 |
 |------|------|------|
-| P0 主/子 agent 协同 | ✅ | 约定 DELEGATE 格式、parseDelegate、getSubPersona、runSubAgents/runSubAgentsStreaming、POST /chat 与 /chat/stream 接入、persona 与 subpersona 配置 |
-| 主/子共用同一模型 | ✅ | 主与子均用同一 Ollama 模型，仅 system 不同（persona.md vs subpersona/*.md） |
+| P0 主/子 agent 协同 | ✅ | 约定 DELEGATE 格式、parseDelegate、getSubAgentSystem、runSubAgents/runSubAgentsStreaming、POST /chat 与 /chat/stream 接入、AGENTS.md 与 agents/ 配置 |
+| 主/子共用同一模型 | ✅ | 主与子均用同一 Ollama 模型，仅 system 不同（bootstrap 注入 vs agents/<role>.md + TOOLS.md） |
 | 网关结构化事件 | ✅ | 用 `main_reply_clean`、`summary`、`sub_thinking`/`sub_chunk`/`sub_done` 替代占位 chunk，不再向 SSE 推送「[正在执行子任务…]」等无意义文字 |
 | 前端：主回复与综合回复分离 | ✅ | 支持 mainReplyClean（主回复去 DELEGATE）、summary（综合回复）单独展示；综合回复单独一块「综合回复」 |
 | 前端：Markdown 渲染 | ✅ | 消息正文、子 agent 结论、综合回复用 react-markdown + remark-gfm |
@@ -50,7 +50,7 @@
 |------|------|
 | 网关流式与 DELEGATE 逻辑 | gateway/src/index.ts |
 | 子 agent 解析与执行 | gateway/src/delegate.ts |
-| 主 agent 人设 | gateway/data/persona.md |
+| 主 agent 人设 | gateway/data/AGENTS.md（或 persona.md 兼容） |
 | 综合阶段约束 | 待加：可在 index.ts 构造 messagesForSummary 时追加 system，或见上 2.1 |
 | 前端消息展示 | frontend/src/components/MessageBubble.tsx |
 | 前端流式与 sub/main/summary | frontend/src/hooks/useChat.ts, frontend/src/api/gateway.ts |
@@ -63,4 +63,4 @@
 
 1. 先看本文档「二、当前问题」和「三、关键文件索引」。
 2. 优先修：综合回复强制为总结（2.1）、红框 DELEGATE 不展示（2.2）、子 agent 结论外置且流式可感知（2.3）。
-3. 需要时查 docs/sub-agent-flow.md 与 persona.md 综合段说明。
+3. 需要时查 docs/sub-agent-flow.md 与 AGENTS.md 综合段说明。

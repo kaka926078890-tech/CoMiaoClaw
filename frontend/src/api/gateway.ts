@@ -1,5 +1,5 @@
 import type { ChatRequest, ChatResponse } from "@/types/chat";
-import { getChatUrl, getChatStreamUrl, getGatewayConfig, getMemoryUrl, getSessionClearUrl } from "@/config/env";
+import { getChatUrl, getChatStreamUrl, getGatewayConfig, getMemoryClearUrl, getMemoryUrl, getSessionClearUrl } from "@/config/env";
 
 export interface SendMessageResult {
   success: true;
@@ -199,4 +199,10 @@ export async function fetchMemoryContent(): Promise<string> {
 export async function clearSession(): Promise<void> {
   const res = await fetch(getSessionClearUrl(), { method: "POST" });
   if (!res.ok) throw new Error(`清空会话失败 ${res.status}`);
+}
+
+/** 清空历史记忆文件内容 */
+export async function clearMemory(): Promise<void> {
+  const res = await fetch(getMemoryClearUrl(), { method: "POST" });
+  if (!res.ok) throw new Error(`清空记忆失败 ${res.status}`);
 }

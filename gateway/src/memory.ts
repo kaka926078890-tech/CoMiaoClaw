@@ -63,3 +63,12 @@ export function appendMemory(userContent: string, assistantContent: string): voi
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(config.memoryPath, block, "utf-8");
 }
+
+/**
+ * 清空记忆文件内容。
+ */
+export function clearMemory(): void {
+  const dir = path.dirname(config.memoryPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(config.memoryPath, "", "utf-8");
+}

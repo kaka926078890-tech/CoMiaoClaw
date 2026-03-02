@@ -35,6 +35,11 @@ export function getSessionClearUrl(): string {
   return `${base}/session/clear`;
 }
 
+export function getMemoryClearUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/memory/clear`;
+}
+
 function getConfigUrl(): string {
   const base = config.gatewayOrigin || "";
   return `${base}/config`;
