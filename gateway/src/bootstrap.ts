@@ -129,9 +129,15 @@ const BOOTSTRAP_ORDER: { key: string; getContent: () => string }[] = [
   { key: "IDENTITY", getContent: () => readOptional(config.identityPath) },
   { key: "USER", getContent: () => readOptional(config.userPath) },
   { key: "TOOLS", getContent: () => readOptional(config.toolsPath) },
+  { key: "LOCAL_FILE", getContent: getLocalFileBlock },
   { key: "SKILLS", getContent: getSkillsListBlock },
   { key: "CURRENT_DATETIME", getContent: getCurrentDatetimeBlock },
 ];
+
+function getLocalFileBlock(): string {
+  if (!config.localFileRoot) return "";
+  return "**本地文件操作**（已开启，供你直接操作用户电脑上的文件）：路径均相对于 LOCAL_FILE_ROOT 配置的根目录（如用户桌面）。\n- 列出目录：`LIST_DIR: <相对路径>`，系统返回该目录下的文件名列表。\n- 读文件：`READ_FILE: <相对路径>`，系统将文件内容注入下一轮。\n- 写文件：`WRITE_FILE: <相对路径>` 换行后写文件内容，直到下一行出现 LIST_DIR/READ_FILE/WRITE_FILE 或结尾。可在一轮回复中写多个 WRITE_FILE 以创建整个工程（如新建 React 项目：先写 package.json、再写 index.html、src/App.jsx 等）。父目录不存在时会自动创建。";
+}
 
 function capTotal(parts: string[], totalMax: number): string {
   let out = "";

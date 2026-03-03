@@ -106,6 +106,11 @@ const BROWSER_SNAPSHOT_MAX_CHARS =
     ? parseInt(process.env.BROWSER_SNAPSHOT_MAX_CHARS, 10)
     : 30000;
 
+const LOCAL_FILE_ROOT =
+  typeof process.env.LOCAL_FILE_ROOT === "string" && process.env.LOCAL_FILE_ROOT.trim().length > 0
+    ? path.resolve(process.env.LOCAL_FILE_ROOT.trim())
+    : "";
+
 export const config = {
   port: Number.isFinite(PORT) ? PORT : 3000,
   ollamaHost: OLLAMA_HOST,
@@ -132,4 +137,5 @@ export const config = {
   useExternalTime: USE_EXTERNAL_TIME,
   browserTimeoutMs: Number.isFinite(BROWSER_TIMEOUT_MS) && BROWSER_TIMEOUT_MS > 0 ? BROWSER_TIMEOUT_MS : 15000,
   browserSnapshotMaxChars: Number.isFinite(BROWSER_SNAPSHOT_MAX_CHARS) && BROWSER_SNAPSHOT_MAX_CHARS > 0 ? BROWSER_SNAPSHOT_MAX_CHARS : 30000,
+  localFileRoot: LOCAL_FILE_ROOT,
 } as const;
