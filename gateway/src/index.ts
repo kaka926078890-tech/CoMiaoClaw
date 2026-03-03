@@ -1,7 +1,7 @@
 import "./loadenv.js";
 import express, { Request, Response } from "express";
 import { config } from "./config.js";
-import { loadBootstrap } from "./bootstrap.js";
+import { loadBootstrap, fetchExternalTime } from "./bootstrap.js";
 import { appendMemory, clearMemory, getMemoryRaw } from "./memory.js";
 import { chatWithOllama, streamChatWithOllama } from "./ollama.js";
 import type { OllamaMessage } from "./ollama.js";
@@ -21,10 +21,21 @@ import {
   fetchUrlsContent,
   stripFetchUrlFromReply,
 } from "./fetch-url.js";
+import {
+  parseBrowserNavigateUrls,
+  stripBrowserNavigateFromReply,
+} from "./browser-protocol.js";
+import { navigateAndSnapshot } from "./browser.js";
 
-function buildMessagesWithSystem(sessionMessages: OllamaMessage[]): OllamaMessage[] {
+async function buildMessagesWithSystem(sessionMessages: OllamaMessage[]): Promise<OllamaMessage[]> {
   console.log("[flow] buildMessagesWithSystem 开始", { sessionCount: sessionMessages.length });
-  const systemContent = loadBootstrap();
+  let systemContent: string;
+  if (config.useExternalTime) {
+    const externalTime = await fetchExternalTime();
+    systemContent = loadBootstrap({ currentDatetime: externalTime });
+  } else {
+    systemContent = loadBootstrap();
+  }
   console.log("[flow] loadBootstrap 完成", { systemLength: systemContent?.length ?? 0 });
   if (!systemContent) return sessionMessages;
   const out: OllamaMessage[] = [{ role: "system", content: systemContent }, ...sessionMessages];
@@ -143,7 +154,7 @@ app.post("/chat", async (req: Request, res: Response) => {
     sessionMessages.push({ role: "user", content: message });
     console.log("[flow] POST /chat 已追加 user 消息，session 长度", sessionMessages.length);
 
-    const messagesForOllama = buildMessagesWithSystem(sessionMessages);
+    const messagesForOllama = await buildMessagesWithSystem(sessionMessages);
     console.log("[flow] POST /chat 即将调用 chatWithOllama", { messagesCount: messagesForOllama.length });
     const mainReply = await chatWithOllama(messagesForOllama, model);
     console.log("[flow] POST /chat mainReply 收到", {
@@ -158,16 +169,20 @@ app.post("/chat", async (req: Request, res: Response) => {
     if (delegates.length === 0) {
       const skillNames = parseSkillNames(mainReply);
       const fetchUrls = parseFetchUrls(mainReply);
+      const browserUrls = parseBrowserNavigateUrls(mainReply);
       const hasSkill = skillNames.length > 0;
       const hasFetch = fetchUrls.length > 0;
+      const hasBrowser = browserUrls.length > 0;
       console.log("[flow] POST /chat 无 DELEGATE，解析协议", {
         skillNames,
         fetchUrls,
+        browserUrls,
         hasSkill,
         hasFetch,
+        hasBrowser,
       });
-      if (hasSkill || hasFetch) {
-        const stripped = stripFetchUrlFromReply(stripSkillFromReply(mainReply)).trim() || "已加载资源。";
+      if (hasSkill || hasFetch || hasBrowser) {
+        const stripped = stripBrowserNavigateFromReply(stripFetchUrlFromReply(stripSkillFromReply(mainReply))).trim() || "已加载资源。";
         sessionMessages.push({ role: "assistant", content: stripped });
         const injectParts: string[] = [];
         if (hasSkill) {
@@ -181,10 +196,17 @@ app.post("/chat", async (req: Request, res: Response) => {
           console.log("[flow] POST /chat 抓取 URL 完成", { contentLength: urlContent.length });
           if (urlContent) injectParts.push(urlContent);
         }
+        if (hasBrowser) {
+          const firstUrl = browserUrls[0];
+          console.log("[flow] POST /chat 即将打开浏览器", { url: firstUrl });
+          const { snapshot } = await navigateAndSnapshot(firstUrl);
+          console.log("[flow] POST /chat 浏览器快照完成", { snapshotLength: snapshot.length });
+          if (snapshot) injectParts.push(`[浏览器页面快照]\n\n${snapshot}`);
+        }
         if (injectParts.length > 0) {
           sessionMessages.push({ role: "user", content: injectParts.join("\n\n") });
           console.log("[flow] POST /chat 注入后再次调用 Ollama", { sessionLength: sessionMessages.length });
-          const messagesForProtocol = buildMessagesWithSystem(sessionMessages);
+          const messagesForProtocol = await buildMessagesWithSystem(sessionMessages);
           const finalReply = await chatWithOllama(messagesForProtocol, model);
           console.log("[flow] POST /chat SKILL/FETCH 轮次完成", { finalReplyLength: finalReply.length });
           sessionMessages.push({ role: "assistant", content: finalReply });
@@ -213,7 +235,7 @@ app.post("/chat", async (req: Request, res: Response) => {
       role: "user",
       content: "[子任务结果]\n\n" + subResult,
     });
-    const messagesForSummary = buildMessagesWithSystem(sessionMessages);
+    const messagesForSummary = await buildMessagesWithSystem(sessionMessages);
     const finalReply = await chatWithOllama(messagesForSummary, model);
     console.log("[flow] POST /chat finalReply", { finalReplyLength: finalReply.length, finalReplyPreview: finalReply.slice(0, 300) });
     sessionMessages.push({ role: "assistant", content: finalReply });
@@ -284,28 +306,34 @@ app.post("/chat/stream", async (req: Request, res: Response) => {
     };
     write(": \n\n");
 
-    const timeoutMs = 120000;
+    const idleTimeoutMs = 180000;
     const keepaliveMs = 15000;
     let fullReply = "";
     let chunkCount = 0;
     let thinkingCount = 0;
+    const messagesForOllama = await buildMessagesWithSystem(sessionMessages);
     const streamPromise = new Promise<void>((resolve, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("模型响应超时")), timeoutMs);
+      const resetIdleTimer = (): void => {
+        if (timeoutId) clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => reject(new Error("模型响应超时")), idleTimeoutMs);
+      };
+      resetIdleTimer();
       keepaliveId = setInterval(() => {
         console.log("[flow] POST /chat/stream keepalive 发送");
         write(": keepalive\n\n");
       }, keepaliveMs);
-      const messagesForOllama = buildMessagesWithSystem(sessionMessages);
       console.log("[flow] POST /chat/stream 开始 streamChatWithOllama", { messagesCount: messagesForOllama.length });
       streamChatWithOllama(
         messagesForOllama,
         {
           onThinking: (text) => {
+            resetIdleTimer();
             thinkingCount++;
             if (thinkingCount <= 3) console.log("[flow] POST /chat/stream onThinking", { index: thinkingCount, length: text.length });
             write(`data: ${JSON.stringify({ thinking: text })}\n\n`);
           },
           onChunk: (chunk) => {
+            resetIdleTimer();
             chunkCount++;
             if (chunkCount <= 3 || chunkCount % 50 === 0) console.log("[flow] POST /chat/stream onChunk", { index: chunkCount, chunkLength: chunk.length });
             fullReply += chunk;
@@ -329,11 +357,13 @@ app.post("/chat/stream", async (req: Request, res: Response) => {
           if (delegates.length === 0) {
             const skillNames = parseSkillNames(fullReply);
             const fetchUrls = parseFetchUrls(fullReply);
+            const browserUrls = parseBrowserNavigateUrls(fullReply);
             const hasSkill = skillNames.length > 0;
             const hasFetch = fetchUrls.length > 0;
-            console.log("[flow] POST /chat/stream 无 DELEGATE", { skillNames, fetchUrls, hasSkill, hasFetch });
-            if (hasSkill || hasFetch) {
-              const stripped = stripFetchUrlFromReply(stripSkillFromReply(fullReply)).trim() || "已加载资源。";
+            const hasBrowser = browserUrls.length > 0;
+            console.log("[flow] POST /chat/stream 无 DELEGATE", { skillNames, fetchUrls, browserUrls, hasSkill, hasFetch, hasBrowser });
+            if (hasSkill || hasFetch || hasBrowser) {
+              const stripped = stripBrowserNavigateFromReply(stripFetchUrlFromReply(stripSkillFromReply(fullReply))).trim() || "已加载资源。";
               write(`data: ${JSON.stringify({ type: "main_reply_clean", content: stripped })}\n\n`);
               sessionMessages.push({ role: "assistant", content: stripped });
               const injectParts: string[] = [];
@@ -345,12 +375,18 @@ app.post("/chat/stream", async (req: Request, res: Response) => {
                 const urlContent = await fetchUrlsContent(fetchUrls);
                 if (urlContent) injectParts.push(urlContent);
               }
+              if (hasBrowser) {
+                const firstUrl = browserUrls[0];
+                const { snapshot } = await navigateAndSnapshot(firstUrl);
+                if (snapshot) injectParts.push(`[浏览器页面快照]\n\n${snapshot}`);
+                write(`data: ${JSON.stringify({ type: "browser_navigate_done", url: firstUrl })}\n\n`);
+              }
               if (injectParts.length > 0) {
                 sessionMessages.push({ role: "user", content: injectParts.join("\n\n") });
                 if (hasSkill) write(`data: ${JSON.stringify({ type: "skill_loaded", skills: skillNames })}\n\n`);
                 if (hasFetch) write(`data: ${JSON.stringify({ type: "fetch_url_done", urls: fetchUrls })}\n\n`);
                 console.log("[flow] POST /chat/stream 注入完成，再调 Ollama", { injectPartsLength: injectParts.length });
-                const messagesForProtocol = buildMessagesWithSystem(sessionMessages);
+                const messagesForProtocol = await buildMessagesWithSystem(sessionMessages);
                 const finalReply = await chatWithOllama(messagesForProtocol, model);
                 console.log("[flow] POST /chat/stream 协议轮次完成", { finalReplyLength: finalReply.length });
                 sessionMessages.push({ role: "assistant", content: finalReply });
@@ -374,18 +410,18 @@ app.post("/chat/stream", async (req: Request, res: Response) => {
             return;
           }
           console.log("[flow] POST /chat/stream 进入 DELEGATE 分支", { delegatesCount: delegates.length });
-          const mainReplyClean = stripDelegateFromReply(fullReply).trim() || "已派发子任务。";
-          write(`data: ${JSON.stringify({ type: "main_reply_clean", content: mainReplyClean })}\n\n`);
+          const mainReplyForDisplay = fullReply.trim() || "已派发子任务。";
+          write(`data: ${JSON.stringify({ type: "main_reply_clean", content: mainReplyForDisplay })}\n\n`);
           const subResult = await runSubAgentsStreaming(delegates, model, (ev) => {
             write(`data: ${JSON.stringify(ev)}\n\n`);
           });
           console.log("[flow] POST /chat/stream subResult", { subResultLength: subResult.length, subResultPreview: subResult.slice(0, 300) });
-          sessionMessages.push({ role: "assistant", content: mainReplyClean });
+          sessionMessages.push({ role: "assistant", content: mainReplyForDisplay });
           sessionMessages.push({
             role: "user",
             content: "[子任务结果]\n\n" + subResult,
           });
-          const messagesForSummary = buildMessagesWithSystem(sessionMessages);
+          const messagesForSummary = await buildMessagesWithSystem(sessionMessages);
           const finalReply = await chatWithOllama(messagesForSummary, model);
           console.log("[flow] POST /chat/stream finalReply", { finalReplyLength: finalReply.length, finalReplyPreview: finalReply.slice(0, 300) });
           write(`data: ${JSON.stringify({ type: "summary", content: finalReply })}\n\n`);

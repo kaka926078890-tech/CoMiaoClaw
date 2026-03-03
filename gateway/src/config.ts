@@ -94,6 +94,18 @@ const FETCH_URL_MAX_BODY =
     ? parseInt(process.env.FETCH_URL_MAX_BODY, 10)
     : 200000;
 
+const USE_EXTERNAL_TIME_RAW = typeof process.env.USE_EXTERNAL_TIME === "string" ? process.env.USE_EXTERNAL_TIME.trim().toLowerCase() : "";
+const USE_EXTERNAL_TIME = /^(0|false|no)$/.test(USE_EXTERNAL_TIME_RAW) ? false : true;
+
+const BROWSER_TIMEOUT_MS =
+  typeof process.env.BROWSER_TIMEOUT_MS === "string"
+    ? parseInt(process.env.BROWSER_TIMEOUT_MS, 10)
+    : 15000;
+const BROWSER_SNAPSHOT_MAX_CHARS =
+  typeof process.env.BROWSER_SNAPSHOT_MAX_CHARS === "string"
+    ? parseInt(process.env.BROWSER_SNAPSHOT_MAX_CHARS, 10)
+    : 30000;
+
 export const config = {
   port: Number.isFinite(PORT) ? PORT : 3000,
   ollamaHost: OLLAMA_HOST,
@@ -117,4 +129,7 @@ export const config = {
   bootstrapTotalMaxChars: Number.isFinite(BOOTSTRAP_TOTAL_MAX_CHARS) && BOOTSTRAP_TOTAL_MAX_CHARS > 0 ? BOOTSTRAP_TOTAL_MAX_CHARS : 150000,
   fetchUrlTimeoutMs: Number.isFinite(FETCH_URL_TIMEOUT_MS) && FETCH_URL_TIMEOUT_MS > 0 ? FETCH_URL_TIMEOUT_MS : 15000,
   fetchUrlMaxBody: Number.isFinite(FETCH_URL_MAX_BODY) && FETCH_URL_MAX_BODY > 0 ? FETCH_URL_MAX_BODY : 200000,
+  useExternalTime: USE_EXTERNAL_TIME,
+  browserTimeoutMs: Number.isFinite(BROWSER_TIMEOUT_MS) && BROWSER_TIMEOUT_MS > 0 ? BROWSER_TIMEOUT_MS : 15000,
+  browserSnapshotMaxChars: Number.isFinite(BROWSER_SNAPSHOT_MAX_CHARS) && BROWSER_SNAPSHOT_MAX_CHARS > 0 ? BROWSER_SNAPSHOT_MAX_CHARS : 30000,
 } as const;

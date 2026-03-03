@@ -8,7 +8,7 @@ alwaysApply: true
 
 ## 新对话与规则遵守
 
-- 每次新对话开始前，须自行阅读 `.cursor/rules/` 下所有规则文件（project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc 等），并严格遵守。
+- 每次新对话开始前，须自行阅读 `.cursor/rules/` 下所有规则文件（project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc、agents-persona.mdc 等），并严格遵守。
 - 当用户指出错误时，须在 `error-corrections.mdc` 中追加纠正记录，并更新对应规则文件；更新后须按新规则自检并执行。
 
 ## docs 文档命名

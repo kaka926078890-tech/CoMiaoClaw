@@ -78,7 +78,48 @@ function getSkillsListBlock(): string {
     }
   }
   if (lines.length === 0) return "";
-  return "**可用技能**（需要某技能时在回复中写 `SKILL: <技能名>`，系统会加载全文并再让你回复一轮；有 DELEGATE 时勿混用 SKILL）：\n" + lines.join("\n");
+  return "**可用技能**（需要某技能时在回复中写 `SKILL: <技能名>`，系统会加载全文并再让你回复一轮；问时间请直接看上方当前日期时间；有 DELEGATE 时勿混用 SKILL）：\n" + lines.join("\n");
+}
+
+function getCurrentDatetimeBlock(): string {
+  const now = new Date();
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const str = now.toLocaleString("zh-CN", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+  return `**当前日期时间（服务器）**：${str} ${tz}（你可直接据此回答用户问时间，不属超权）`;
+}
+
+export async function fetchExternalTime(): Promise<string> {
+  try {
+    const res = await fetch("https://worldtimeapi.org/api/ip", { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return getCurrentDatetimeBlock();
+    const data = (await res.json()) as { datetime?: string; timezone?: string };
+    const dt = data.datetime;
+    const tz = data.timezone ?? "UTC";
+    if (!dt) return getCurrentDatetimeBlock();
+    const date = new Date(dt);
+    const str = date.toLocaleString("zh-CN", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    return `**当前日期时间（网络）**：${str} ${tz}（你可直接据此回答用户问时间，不属超权）`;
+  } catch {
+    return getCurrentDatetimeBlock();
+  }
 }
 
 const BOOTSTRAP_ORDER: { key: string; getContent: () => string }[] = [
@@ -89,6 +130,7 @@ const BOOTSTRAP_ORDER: { key: string; getContent: () => string }[] = [
   { key: "USER", getContent: () => readOptional(config.userPath) },
   { key: "TOOLS", getContent: () => readOptional(config.toolsPath) },
   { key: "SKILLS", getContent: getSkillsListBlock },
+  { key: "CURRENT_DATETIME", getContent: getCurrentDatetimeBlock },
 ];
 
 function capTotal(parts: string[], totalMax: number): string {
@@ -107,12 +149,19 @@ function capTotal(parts: string[], totalMax: number): string {
   return out;
 }
 
-export function loadBootstrap(): string {
+export interface BootstrapOverrides {
+  currentDatetime?: string;
+}
+
+export function loadBootstrap(overrides?: BootstrapOverrides): string {
   console.log("[bootstrap] loadBootstrap 开始");
   const parts: string[] = [];
   const keys: string[] = [];
   for (const { key, getContent } of BOOTSTRAP_ORDER) {
-    const content = getContent();
+    const content =
+      key === "CURRENT_DATETIME" && overrides?.currentDatetime
+        ? overrides.currentDatetime
+        : getContent();
     if (content) {
       parts.push(content);
       keys.push(key);
