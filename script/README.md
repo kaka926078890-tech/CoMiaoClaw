@@ -40,6 +40,36 @@ npm start
 
 ---
 
+## 定时任务：每 2 分钟在 work/test 写时间文件
+
+网关启动后，定时任务每分钟检查一次；若任务类型为「写时间文件」且间隔为 2 分钟，则每 2 分钟写入一个带当前时间 ISO 字符串的文件。**写入路径**：若在 `.env` 中配置了 `LOCAL_FILE_ROOT`，文件写入该目录下的 `test`（即 `LOCAL_FILE_ROOT/test`）；若未配置则写入 `WORKSPACE/work/test`，未配置 `WORKSPACE` 时默认为项目内 `gateway/data`。
+
+### 方式一：控制台对话（推荐）
+
+在**聊天页面**用自然语言说明需求，Claw 会自动创建定时任务并执行。例如在输入框发送：
+
+- 「每隔 2 分钟在 work 下的 test 文件夹里添加一个文件，文件中记录当时的时间。」
+
+模型须按标准格式输出一行：`TIME_TASK: 间隔分钟 | 任务`。例如「每隔 2 分钟在 work/test 写时间文件」→ `TIME_TASK: 2 | 在 work 下的 test 文件夹里添加一个文件，文件中记录当时的时间`。网关解析后创建任务并注入结果，Claw 再回复确认。到点后任务内容会交给模型拆解执行（如写文件等）。
+
+### 方式二：定时任务面板
+
+1. 启动网关与前端（如 `npm run dev`），打开 http://localhost:5173。
+2. 侧栏点击「定时任务」打开面板。
+3. 点击「新建」→ 任务名称随意（如「写时间」）→ 类型选「每 N 分钟在 work/test 写时间文件」→ 间隔填 **2** → 勾选「启用」→ 点击「添加」。
+
+### 方式三：接口创建（curl）
+
+```bash
+curl -X POST http://localhost:3000/scheduled-tasks \
+  -H "Content-Type: application/json" \
+  -d '{"name":"写时间","type":"agent-run","intervalMinutes":2,"enabled":true,"instruction":"在 work 下的 test 文件夹里添加一个文件，文件中记录当时的时间"}'
+```
+
+创建后网关会按间隔在配置的目录下写文件。在 `.env` 中配置 `LOCAL_FILE_ROOT` 时写入该目录下的 `test`；或配置 `WORKSPACE` 时写入 `WORKSPACE/work/test`。
+
+---
+
 ## 测试 DELEGATE（主/子 agent）
 
 主 agent 在回复里输出 `DELEGATE: 子任务描述 | 子角色名` 时，网关会解析并调子 agent，再调主 agent 综合后返回。

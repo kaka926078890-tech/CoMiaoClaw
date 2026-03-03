@@ -431,10 +431,13 @@ export async function createWorkspaceFile(path: string, content: string): Promis
 export interface ScheduledTask {
   id: string;
   name: string;
-  type: "memory-compact" | "heartbeat";
+  type: "memory-compact" | "heartbeat" | "time-file" | "agent-prompt" | "agent-run";
   intervalMinutes: number;
   enabled: boolean;
   lastRunAt?: number;
+  prompt?: string;
+  action?: "log" | "file";
+  instruction?: string;
 }
 
 export async function listScheduledTasks(): Promise<ScheduledTask[]> {
@@ -447,13 +450,25 @@ export async function listScheduledTasks(): Promise<ScheduledTask[]> {
   return Array.isArray(data.tasks) ? data.tasks : [];
 }
 
-export async function createScheduledTask(input: { name: string; type: "memory-compact" | "heartbeat"; intervalMinutes: number; enabled?: boolean }): Promise<ScheduledTask> {
+export async function createScheduledTask(input: {
+  name: string;
+  type: "memory-compact" | "heartbeat" | "time-file" | "agent-prompt" | "agent-run";
+  intervalMinutes: number;
+  enabled?: boolean;
+  prompt?: string;
+  action?: "log" | "file";
+  instruction?: string;
+}): Promise<ScheduledTask> {
   const url = getScheduledTasksUrl();
   emitLog("request", `POST ${url}`);
+  const body: Record<string, unknown> = { ...input, enabled: input.enabled ?? true };
+  if (input.type === "agent-prompt" && input.prompt != null) body.prompt = input.prompt;
+  if (input.type === "agent-prompt" && input.action != null) body.action = input.action;
+  if (input.type === "agent-run" && input.instruction != null) body.instruction = input.instruction;
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...input, enabled: input.enabled ?? true }),
+    body: JSON.stringify(body),
   });
   emitLog("request", `POST ${url} → ${res.status}`);
   if (!res.ok) {
@@ -463,7 +478,18 @@ export async function createScheduledTask(input: { name: string; type: "memory-c
   return res.json() as Promise<ScheduledTask>;
 }
 
-export async function updateScheduledTask(id: string, input: Partial<{ name: string; type: "memory-compact" | "heartbeat"; intervalMinutes: number; enabled: boolean }>): Promise<ScheduledTask> {
+export async function updateScheduledTask(
+  id: string,
+  input: Partial<{
+    name: string;
+    type: "memory-compact" | "heartbeat" | "time-file" | "agent-prompt" | "agent-run";
+    intervalMinutes: number;
+    enabled: boolean;
+    prompt: string;
+    action: "log" | "file";
+    instruction: string;
+  }>
+): Promise<ScheduledTask> {
   const url = getScheduledTaskUrl(id);
   emitLog("request", `PUT ${url}`);
   const res = await fetch(url, {

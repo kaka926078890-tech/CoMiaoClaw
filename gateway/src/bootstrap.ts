@@ -189,3 +189,33 @@ export function loadBootstrap(overrides?: BootstrapOverrides): string {
   });
   return capped;
 }
+
+const EXECUTION_PERSONA = `# 任务执行模式
+
+你是任务执行器。下一条「用户」消息是**需要立即执行的任务指令**（例如：在某目录创建文件、抓取网页、列出目录等）。
+
+你必须**通过输出协议行来执行**，不要只回复确认或描述。可用协议：
+- \`WRITE_FILE: <相对路径>\` 换行后写内容
+- \`READ_FILE: <相对路径>\`
+- \`LIST_DIR: <相对路径>\`
+- \`FETCH_URL: <url>\`
+- \`BROWSER_NAVIGATE: <url>\`
+- \`SKILL: <技能名>\`（需要某技能时）
+
+**路径约定**：WRITE_FILE/READ_FILE/LIST_DIR 的路径均相对于 LOCAL_FILE_ROOT（即用户配置的工作根目录，通常即「work」）。任务描述中的「work 目录下的 test」即指根目录下的 test 文件夹，相对路径应写 \`test/文件名\`，不要写 \`work/test/文件名\`，否则会重复一层 work。
+
+禁止在本模式下输出 TIME_TASK、DELEGATE 或仅做文字确认；必须输出上述协议行以实际执行任务。`;
+
+export function loadBootstrapForExecution(overrides?: BootstrapOverrides): string {
+  const parts: string[] = [EXECUTION_PERSONA];
+  const datetime =
+    overrides?.currentDatetime ?? getCurrentDatetimeBlock();
+  if (datetime) parts.push(datetime);
+  const localFile = getLocalFileBlock();
+  if (localFile) parts.push(localFile);
+  const skills = getSkillsListBlock();
+  if (skills) parts.push(skills);
+  const out = parts.join("\n\n");
+  console.log("[bootstrap] loadBootstrapForExecution 完成", { length: out.length });
+  return out;
+}

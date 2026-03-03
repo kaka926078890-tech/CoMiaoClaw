@@ -159,6 +159,7 @@ export function writeLocalFile(relativePath: string, content: string): { ok: boo
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     if (!ensureUnderRoot(dir) || !ensureUnderRoot(absolute)) return { ok: false, error: "路径越界（含符号链接逃逸）" };
     fs.writeFileSync(absolute, content, "utf-8");
+    console.log("[local-file] 已写入", { relativePath: relativePath, absolutePath: absolute });
     return { ok: true };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

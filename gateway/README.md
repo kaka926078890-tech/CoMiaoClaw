@@ -11,7 +11,6 @@
 - 可选 `OLLAMA_HOST`：Ollama 地址，默认 `http://127.0.0.1:11434`。
 - 可选 `MEMORY_PATH`、`PERSONA_PATH`：记忆与人设文件路径，默认 `gateway/data/memory.md`、`gateway/data/persona.md`。
 - 可选 `MEMORY_INJECT_COUNT`、`MEMORY_INJECT_MAX_CHARS`、`MEMORY_ENTRY_MAX_CHARS`：读记忆条数(默认 10)、注入总字符上限(默认 2000)、写记忆单条截断(默认 80)。
-
 网关启动时从根目录加载 `.env`，并暴露 `GET /config` 供前端拉取当前模型等配置。
 
 ## 跨对话记忆与人设

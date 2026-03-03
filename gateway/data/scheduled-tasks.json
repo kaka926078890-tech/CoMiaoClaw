@@ -1,0 +1,13 @@
+{
+  "tasks": [
+    {
+      "name": "在_work_test_目录下生成一个包含当前时间戳和冷笑话",
+      "type": "agent-run",
+      "intervalMinutes": 2,
+      "enabled": false,
+      "instruction": "在 work/test 目录下生成一个包含当前时间戳和冷笑话的 Markdown 文件",
+      "id": "40a7c4cb-9c21-444e-8ad5-b4251cc11dfe",
+      "lastRunAt": 1772530714296
+    }
+  ]
+}

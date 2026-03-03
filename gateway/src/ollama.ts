@@ -82,8 +82,14 @@ export async function chatWithOllama(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    console.error("[ollama] chatWithOllama fetch error", { url, error: msg });
-    throw new Error(`无法连接 Ollama（${config.ollamaHost}）：${msg}`);
+    console.error("[ollama] chatWithOllama fetch error", {
+      url,
+      error: msg,
+      hint: "若为 fetch failed / ECONNREFUSED，请确认 Ollama 已启动（如终端执行 ollama serve）并监听 " + config.ollamaHost,
+    });
+    throw new Error(
+      `无法连接 Ollama（${config.ollamaHost}）：${msg}。若为连接失败，请确认 Ollama 已启动并监听该地址。`
+    );
   }
 
   if (!res.ok) {

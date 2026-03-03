@@ -53,8 +53,8 @@ import {
   createScheduledTask,
   updateScheduledTask,
   deleteScheduledTask,
+  parseScheduledTaskCreate,
 } from "./scheduled-tasks.js";
-
 async function buildMessagesWithSystem(sessionMessages: OllamaMessage[]): Promise<OllamaMessage[]> {
   console.log("[flow] buildMessagesWithSystem 开始", { sessionCount: sessionMessages.length });
   let systemContent: string;
@@ -77,6 +77,7 @@ function toSingleModel(s: string): string {
 }
 
 const app = express();
+
 app.use(express.json());
 
 app.use((req, _res, next) => {
@@ -185,15 +186,47 @@ app.get("/scheduled-tasks", (_req: Request, res: Response) => {
 app.post("/scheduled-tasks", (req: Request, res: Response) => {
   const body = req.body;
   const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const type = body?.type === "memory-compact" || body?.type === "heartbeat" ? body.type : "heartbeat";
+  const type =
+    body?.type === "memory-compact" ||
+    body?.type === "heartbeat" ||
+    body?.type === "time-file" ||
+    body?.type === "agent-prompt" ||
+    body?.type === "agent-run"
+      ? body.type
+      : "heartbeat";
   const intervalMinutes = typeof body?.intervalMinutes === "number" ? Math.max(1, Math.min(1440, body.intervalMinutes)) : 60;
   const enabled = typeof body?.enabled === "boolean" ? body.enabled : true;
+  const prompt = typeof body?.prompt === "string" ? body.prompt.trim() : undefined;
+  const action =
+    body?.action === "log" || body?.action === "file" ? body.action : undefined;
+  const instruction = typeof body?.instruction === "string" ? body.instruction.trim() : undefined;
   if (!name) {
     res.status(400).json({ error: "缺少 name" });
     return;
   }
+  if (type === "agent-prompt" && !prompt) {
+    res.status(400).json({ error: "类型 agent-prompt 时需提供 prompt" });
+    return;
+  }
+  if (type === "agent-run" && !instruction) {
+    res.status(400).json({ error: "类型 agent-run 时需提供 instruction" });
+    return;
+  }
   try {
-    const task = createScheduledTask({ name, type, intervalMinutes, enabled });
+    const payload: Parameters<typeof createScheduledTask>[0] = {
+      name,
+      type,
+      intervalMinutes,
+      enabled,
+    };
+    if (type === "agent-prompt" && prompt) {
+      payload.prompt = prompt;
+      payload.action = action ?? "file";
+    }
+    if (type === "agent-run" && instruction) {
+      payload.instruction = instruction;
+    }
+    const task = createScheduledTask(payload);
     res.status(201).json(task);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -204,11 +237,29 @@ app.post("/scheduled-tasks", (req: Request, res: Response) => {
 /** PUT /scheduled-tasks/:id：更新定时任务 */
 app.put("/scheduled-tasks/:id", (req: Request, res: Response) => {
   const body = req.body;
-  const updates: { name?: string; type?: "memory-compact" | "heartbeat"; intervalMinutes?: number; enabled?: boolean } = {};
+  const updates: {
+    name?: string;
+    type?: "memory-compact" | "heartbeat" | "time-file" | "agent-prompt" | "agent-run";
+    intervalMinutes?: number;
+    enabled?: boolean;
+    prompt?: string;
+    action?: "log" | "file";
+    instruction?: string;
+  } = {};
   if (typeof body?.name === "string") updates.name = body.name.trim();
-  if (body?.type === "memory-compact" || body?.type === "heartbeat") updates.type = body.type;
+  if (
+    body?.type === "memory-compact" ||
+    body?.type === "heartbeat" ||
+    body?.type === "time-file" ||
+    body?.type === "agent-prompt" ||
+    body?.type === "agent-run"
+  )
+    updates.type = body.type;
   if (typeof body?.intervalMinutes === "number") updates.intervalMinutes = Math.max(1, Math.min(1440, body.intervalMinutes));
   if (typeof body?.enabled === "boolean") updates.enabled = body.enabled;
+  if (typeof body?.prompt === "string") updates.prompt = body.prompt.trim();
+  if (body?.action === "log" || body?.action === "file") updates.action = body.action;
+  if (typeof body?.instruction === "string") updates.instruction = body.instruction.trim();
   try {
     const task = updateScheduledTask(req.params.id, updates);
     if (!task) {
@@ -353,10 +404,12 @@ app.post("/chat", async (req: Request, res: Response) => {
       const readPaths = parseReadFiles(mainReply);
       const writeOps = parseWriteFiles(mainReply);
       const listPaths = parseListDirs(mainReply);
+      const scheduledTaskCreate = parseScheduledTaskCreate(mainReply);
       const hasSkill = skillNames.length > 0;
       const hasFetch = fetchUrls.length > 0;
       const hasBrowser = browserUrls.length > 0;
       const hasLocalFile = readPaths.length > 0 || writeOps.length > 0 || listPaths.length > 0;
+      const hasScheduledTaskCreate = scheduledTaskCreate !== null;
       console.log("[flow] POST /chat 无 DELEGATE，解析协议", {
         skillNames,
         fetchUrls,
@@ -368,9 +421,13 @@ app.post("/chat", async (req: Request, res: Response) => {
         hasFetch,
         hasBrowser,
         hasLocalFile,
+        hasScheduledTaskCreate,
       });
-      if (hasSkill || hasFetch || hasBrowser || hasLocalFile) {
-        const stripped = stripLocalFileFromReply(stripBrowserNavigateFromReply(stripFetchUrlFromReply(stripSkillFromReply(mainReply)))).trim() || "已处理。";
+      if (hasSkill || hasFetch || hasBrowser || hasLocalFile || hasScheduledTaskCreate) {
+        const stripped =
+          stripLocalFileFromReply(
+            stripBrowserNavigateFromReply(stripFetchUrlFromReply(stripSkillFromReply(mainReply)))
+          ).trim() || "已处理。";
         session.messages.push({ role: "assistant", content: stripped });
         const injectParts: string[] = [];
         if (hasSkill) {
@@ -394,6 +451,48 @@ app.post("/chat", async (req: Request, res: Response) => {
         if (hasLocalFile) {
           const localResult = runLocalFileOps(readPaths, writeOps, listPaths);
           if (localResult) injectParts.push(localResult);
+        }
+        if (hasScheduledTaskCreate && scheduledTaskCreate) {
+          const createPayload: Parameters<typeof createScheduledTask>[0] = {
+            name: scheduledTaskCreate.name,
+            type: scheduledTaskCreate.type,
+            intervalMinutes: scheduledTaskCreate.intervalMinutes,
+            enabled: true,
+          };
+          if (scheduledTaskCreate.type === "agent-prompt" && scheduledTaskCreate.prompt) {
+            createPayload.prompt = scheduledTaskCreate.prompt;
+            createPayload.action = scheduledTaskCreate.action ?? "file";
+          }
+          if (scheduledTaskCreate.type === "agent-run" && scheduledTaskCreate.instruction) {
+            createPayload.instruction = scheduledTaskCreate.instruction;
+          }
+          const task = createScheduledTask(createPayload);
+          const typeDesc =
+            task.type === "time-file"
+              ? "每 N 分钟在 work/test 写当前时间文件"
+              : task.type === "agent-prompt"
+                ? "每 N 分钟执行自然语言任务（模型生成内容）"
+                : task.type === "agent-run"
+                  ? "每 N 分钟执行复杂指令（多轮抓取/分析/报表等）"
+                  : task.type === "memory-compact"
+                    ? "记忆整理"
+                    : "心跳";
+          const timeFileDir =
+            config.localFileRoot.length > 0
+              ? `${config.localFileRoot}/test`
+              : `${config.workspaceDir}/work/test`;
+          let extra = "";
+          if (task.type === "time-file") {
+            extra = ` 文件将写入：${timeFileDir}（已配置 LOCAL_FILE_ROOT 时用该目录下的 test，否则用 workspace 下的 work/test）。`;
+          } else if (task.type === "agent-prompt") {
+            extra = ` 将每 ${task.intervalMinutes} 分钟执行：「${(task.prompt ?? "").slice(0, 80)}${(task.prompt ?? "").length > 80 ? "…" : ""}」，结果${task.action === "log" ? "仅打网关日志" : `追加到 ${config.workspaceDir}/scheduled-output/${task.name.replace(/[^\w\u4e00-\u9fff-]/g, "_").slice(0, 50)}.md`}。`;
+          } else if (task.type === "agent-run") {
+            extra = ` 将每 ${task.intervalMinutes} 分钟执行复杂指令（可多轮 FETCH_URL、WRITE_FILE 等）：${(task.instruction ?? "").slice(0, 100)}${(task.instruction ?? "").length > 100 ? "…" : ""}。`;
+          }
+          injectParts.push(
+            `[系统] 已创建定时任务「${task.name}」，类型 ${task.type}（${typeDesc}），间隔 ${task.intervalMinutes} 分钟，已启用。` + extra
+          );
+          console.log("[flow] POST /chat 已创建定时任务", { id: task.id, name: task.name, type: task.type });
         }
         if (injectParts.length > 0) {
           session.messages.push({ role: "user", content: injectParts.join("\n\n") });
@@ -563,13 +662,30 @@ app.post("/chat/stream", async (req: Request, res: Response) => {
             const readPaths = parseReadFiles(fullReply);
             const writeOps = parseWriteFiles(fullReply);
             const listPaths = parseListDirs(fullReply);
+            const scheduledTaskCreate = parseScheduledTaskCreate(fullReply);
             const hasSkill = skillNames.length > 0;
             const hasFetch = fetchUrls.length > 0;
             const hasBrowser = browserUrls.length > 0;
             const hasLocalFile = readPaths.length > 0 || writeOps.length > 0 || listPaths.length > 0;
-            console.log("[flow] POST /chat/stream 无 DELEGATE", { skillNames, fetchUrls, browserUrls, readPaths, writeOpsCount: writeOps.length, listPaths, hasSkill, hasFetch, hasBrowser, hasLocalFile });
-            if (hasSkill || hasFetch || hasBrowser || hasLocalFile) {
-              const stripped = stripLocalFileFromReply(stripBrowserNavigateFromReply(stripFetchUrlFromReply(stripSkillFromReply(fullReply)))).trim() || "已处理。";
+            const hasScheduledTaskCreate = scheduledTaskCreate !== null;
+            console.log("[flow] POST /chat/stream 无 DELEGATE", {
+              skillNames,
+              fetchUrls,
+              browserUrls,
+              readPaths,
+              writeOpsCount: writeOps.length,
+              listPaths,
+              hasSkill,
+              hasFetch,
+              hasBrowser,
+              hasLocalFile,
+              hasScheduledTaskCreate,
+            });
+            if (hasSkill || hasFetch || hasBrowser || hasLocalFile || hasScheduledTaskCreate) {
+              const stripped =
+                stripLocalFileFromReply(
+                  stripBrowserNavigateFromReply(stripFetchUrlFromReply(stripSkillFromReply(fullReply)))
+                ).trim() || "已处理。";
               write(`data: ${JSON.stringify({ type: "main_reply_clean", content: stripped })}\n\n`);
               session.messages.push({ role: "assistant", content: stripped });
               const injectParts: string[] = [];
@@ -590,6 +706,52 @@ app.post("/chat/stream", async (req: Request, res: Response) => {
               if (hasLocalFile) {
                 const localResult = runLocalFileOps(readPaths, writeOps, listPaths);
                 if (localResult) injectParts.push(localResult);
+              }
+              if (hasScheduledTaskCreate && scheduledTaskCreate) {
+                const createPayloadStream: Parameters<typeof createScheduledTask>[0] = {
+                  name: scheduledTaskCreate.name,
+                  type: scheduledTaskCreate.type,
+                  intervalMinutes: scheduledTaskCreate.intervalMinutes,
+                  enabled: true,
+                };
+                if (scheduledTaskCreate.type === "agent-prompt" && scheduledTaskCreate.prompt) {
+                  createPayloadStream.prompt = scheduledTaskCreate.prompt;
+                  createPayloadStream.action = scheduledTaskCreate.action ?? "file";
+                }
+                if (scheduledTaskCreate.type === "agent-run" && scheduledTaskCreate.instruction) {
+                  createPayloadStream.instruction = scheduledTaskCreate.instruction;
+                }
+                const task = createScheduledTask(createPayloadStream);
+                const typeDescStream =
+                  task.type === "time-file"
+                    ? "每 N 分钟在 work/test 写当前时间文件"
+                    : task.type === "agent-prompt"
+                      ? "每 N 分钟执行自然语言任务（模型生成内容）"
+                      : task.type === "agent-run"
+                        ? "每 N 分钟执行复杂指令（多轮抓取/分析/报表等）"
+                        : task.type === "memory-compact"
+                          ? "记忆整理"
+                          : "心跳";
+                const timeFileDirStream =
+                  config.localFileRoot.length > 0
+                    ? `${config.localFileRoot}/test`
+                    : `${config.workspaceDir}/work/test`;
+                let extraStream = "";
+                if (task.type === "time-file") {
+                  extraStream = ` 文件将写入：${timeFileDirStream}（已配置 LOCAL_FILE_ROOT 时用该目录下的 test，否则用 workspace 下的 work/test）。`;
+                } else if (task.type === "agent-prompt") {
+                  extraStream = ` 将每 ${task.intervalMinutes} 分钟执行：「${(task.prompt ?? "").slice(0, 80)}${(task.prompt ?? "").length > 80 ? "…" : ""}」，结果${task.action === "log" ? "仅打网关日志" : `追加到 ${config.workspaceDir}/scheduled-output/${task.name.replace(/[^\w\u4e00-\u9fff-]/g, "_").slice(0, 50)}.md`}。`;
+                } else if (task.type === "agent-run") {
+                  extraStream = ` 将每 ${task.intervalMinutes} 分钟执行复杂指令：${(task.instruction ?? "").slice(0, 100)}${(task.instruction ?? "").length > 100 ? "…" : ""}。`;
+                }
+                injectParts.push(
+                  `[系统] 已创建定时任务「${task.name}」，类型 ${task.type}（${typeDescStream}），间隔 ${task.intervalMinutes} 分钟，已启用。` + extraStream
+                );
+                console.log("[flow] POST /chat/stream 已创建定时任务", {
+                  id: task.id,
+                  name: task.name,
+                  type: task.type,
+                });
               }
               if (injectParts.length > 0) {
                 session.messages.push({ role: "user", content: injectParts.join("\n\n") });
@@ -685,6 +847,7 @@ app.listen(config.port, () => {
     memoryPath: config.memoryPath,
     agentsPath: config.agentsPath,
   });
-  console.log("[gateway] 可用路由: GET /config, GET /memory, GET /models, GET/POST/PUT/DELETE /sessions|session|scheduled-tasks, GET/PUT/POST /workspace/files|file, POST /memory/clear, POST /chat, POST /chat/stream");
+  const routes = "GET /config, GET /memory, GET /models, GET/POST/PUT/DELETE /sessions|session|scheduled-tasks, GET/PUT/POST /workspace/files|file, POST /memory/clear, POST /chat, POST /chat/stream";
+  console.log("[gateway] 可用路由:", routes);
   console.log("[gateway] =====================================");
 });

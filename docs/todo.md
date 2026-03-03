@@ -50,6 +50,7 @@
 
 ### P2：体验与扩展
 
+- [ ] **定时任务改用 Redis**：任务定义与调度迁到 Redis（替代当前 JSON 文件 + 内存轮询）；到点触发或 worker 拉取任务，执行器（runInstructionHeadless、runTask 等）不变；便于多实例、持久化与扩展。
 - [ ] 多端 / 多 channel：Telegram、微信等入口统一转内部消息，参考 OpenClaw channel 抽象。
 - [ ] Compaction / 摘要：对话过长时对旧消息摘要或压缩。
 - [ ] 多模型与 fallback：多模型配置与不可用时的 fallback。
