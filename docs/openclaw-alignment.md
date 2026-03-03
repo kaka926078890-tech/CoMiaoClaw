@@ -53,6 +53,7 @@
 ## 配置项
 
 - `WORKSPACE`：工作区根路径
+- `LOCAL_FILE_ROOT`：可选。配置后**大模型**可在回复中通过协议操作该目录下文件（与控制台工作区无关）：`LIST_DIR:` / `READ_FILE:` / `WRITE_FILE:`。**安全约束**：仅允许相对路径；禁止路径中含 `..`（无法通过 `cd ../` 等越出该根）；解析后的绝对路径必须落在根目录内；若路径经符号链接展开后超出根目录则拒绝（防符号链接逃逸）。建议设为单独工程目录（如桌面下 `work` 文件夹），避免指向整块主目录。
 - `PERSONA_PATH`：覆盖主 agent 契约文件（默认 workspace/AGENTS.md 或 persona.md）
 - `MEMORY_PATH`：覆盖记忆文件（默认 workspace/MEMORY.md 或 memory.md）
 - `SUBPERSONA_DIR`：覆盖子 agent 目录（默认 workspace/agents 或 workspace/subpersona）
