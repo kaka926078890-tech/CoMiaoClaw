@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from "react";
 import type { ChatMessage, SubAgentBlock } from "@/types/chat";
 import { sendMessageStreaming } from "@/api/gateway";
+import type { SessionMessage } from "@/api/gateway";
 
 function mergeSubAgents(
   arr: SubAgentBlock[] | undefined,
@@ -22,14 +23,16 @@ function nextId(): string {
 
 export interface UseChatOptions {
   onReplyComplete?: () => void;
-  /** 当前选中模型，发请求时覆盖默认配置 */
   selectedModel?: string;
+  sessionId: string | null;
+  onSessionId: (id: string) => void;
 }
 
 export interface UseChatReturn {
   messages: ChatMessage[];
   send: (text: string) => Promise<void>;
   clearMessages: () => void;
+  loadMessages: (backendMessages: SessionMessage[]) => void;
   isLoading: boolean;
   error: string | null;
   clearError: () => void;
@@ -42,6 +45,20 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
   const onReplyCompleteRef = useRef(options?.onReplyComplete);
   onReplyCompleteRef.current = options?.onReplyComplete;
   const selectedModel = options?.selectedModel ?? undefined;
+  const sessionId = options?.sessionId ?? null;
+  const onSessionId = options?.onSessionId ?? (() => {});
+
+  const loadMessages = useCallback((backendMessages: SessionMessage[]) => {
+    const list: ChatMessage[] = backendMessages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m, i) => ({
+        id: `msg-${i}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+        role: m.role as "user" | "assistant",
+        content: m.content,
+        createdAt: Date.now() - (backendMessages.length - i) * 1000,
+      }));
+    setMessages(list);
+  }, []);
 
   const send = useCallback(
     async (text: string) => {
@@ -162,6 +179,7 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
               )
             );
           },
+          onSessionId: (id) => onSessionId(id),
           onDone: () => {
             setMessages((prev) => {
               if (prev.some((m) => m.id === assistantId)) return prev;
@@ -183,14 +201,15 @@ export function useChat(options?: UseChatOptions): UseChatReturn {
             setError(err);
           },
         },
-        selectedModel
+        selectedModel,
+        sessionId ?? undefined
       );
     },
-    [selectedModel]
+    [selectedModel, sessionId, onSessionId]
   );
 
   const clearError = useCallback(() => setError(null), []);
   const clearMessages = useCallback(() => setMessages([]), []);
 
-  return { messages, send, clearMessages, isLoading, error, clearError };
+  return { messages, send, clearMessages, loadMessages, isLoading, error, clearError };
 }

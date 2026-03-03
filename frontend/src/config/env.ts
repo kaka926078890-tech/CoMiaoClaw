@@ -50,6 +50,46 @@ export function getModelsUrl(): string {
   return `${base}/models`;
 }
 
+export function getWorkspaceFilesUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/workspace/files`;
+}
+
+export function getWorkspaceFileUrl(path: string): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/workspace/file?path=${encodeURIComponent(path)}`;
+}
+
+export function getWorkspaceFilePutUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/workspace/file`;
+}
+
+export function getWorkspaceFilePostUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/workspace/file`;
+}
+
+export function getSessionsUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/sessions`;
+}
+
+export function getSessionUrl(id: string): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/session/${encodeURIComponent(id)}`;
+}
+
+export function getScheduledTasksUrl(): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/scheduled-tasks`;
+}
+
+export function getScheduledTaskUrl(id: string): string {
+  const base = config.gatewayOrigin || "";
+  return `${base}/scheduled-tasks/${encodeURIComponent(id)}`;
+}
+
 /** 拉取可用模型列表（供下拉选择） */
 export async function fetchModels(): Promise<string[]> {
   const res = await fetch(getModelsUrl());

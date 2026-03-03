@@ -33,6 +33,22 @@ export default defineConfig({
         target: "http://localhost:3000",
         changeOrigin: true,
       },
+      "/workspace": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+      "/sessions": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+      "/session": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
+      "/scheduled-tasks": {
+        target: "http://localhost:3000",
+        changeOrigin: true,
+      },
     },
   },
 });

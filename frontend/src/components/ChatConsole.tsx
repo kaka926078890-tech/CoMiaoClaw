@@ -7,50 +7,90 @@ import {
   History,
   X,
   Menu,
+  FileText,
+  Terminal,
+  Clock,
 } from "lucide-react";
 import { useChat } from "@/hooks/useChat";
-import { clearSession } from "@/api/gateway";
+import { createSession, clearSession, listSessions, getSession } from "@/api/gateway";
 import { getGatewayConfig, fetchModels } from "@/config/env";
 import { MessageList } from "./MessageList";
 import { MessageInput } from "./MessageInput";
 import { MemoryHistory } from "./MemoryHistory";
+import { WorkspacePanel } from "./WorkspacePanel";
+import { ConsoleLogPanel } from "./ConsoleLogPanel";
+import { ScheduledTasksPanel } from "./ScheduledTasksPanel";
 
 const SIDEBAR_WIDTH = 260;
 
 export function ChatConsole() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [workspaceOpen, setWorkspaceOpen] = useState(false);
+  const [consoleLogOpen, setConsoleLogOpen] = useState(false);
+  const [scheduledTasksOpen, setScheduledTasksOpen] = useState(false);
   const [clearErrorMsg, setClearErrorMsg] = useState<string | null>(null);
   const [models, setModels] = useState<string[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>("");
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [sessionList, setSessionList] = useState<{ id: string; title: string; updatedAt: number }[]>([]);
 
   useEffect(() => {
     getGatewayConfig().then((cfg) => setSelectedModel(cfg.ollamaModel || ""));
     fetchModels().then(setModels).catch(() => setModels([]));
   }, []);
 
+  const refreshSessionList = useCallback(() => {
+    listSessions().then(setSessionList).catch(() => setSessionList([]));
+  }, []);
+
+  useEffect(() => {
+    refreshSessionList();
+  }, [refreshSessionList, currentSessionId]);
+
   const onReplyComplete = useCallback(() => {
     inputRef.current?.focus();
   }, []);
 
-  const { messages, send, clearMessages, isLoading, error, clearError } = useChat({
+  const { messages, send, clearMessages, loadMessages, isLoading, error, clearError } = useChat({
     onReplyComplete,
     selectedModel: selectedModel || undefined,
+    sessionId: currentSessionId,
+    onSessionId: setCurrentSessionId,
   });
 
   const handleNewConversation = useCallback(async () => {
     setClearErrorMsg(null);
     setHistoryOpen(false);
     try {
-      await clearSession();
+      const id = await createSession();
+      setCurrentSessionId(id);
       clearMessages();
       clearError();
+      refreshSessionList();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setClearErrorMsg(`新启对话失败: ${msg}`);
     }
-  }, [clearMessages, clearError]);
+  }, [clearMessages, clearError, refreshSessionList]);
+
+  const handleLoadSession = useCallback(
+    async (id: string) => {
+      setClearErrorMsg(null);
+      setHistoryOpen(false);
+      try {
+        const data = await getSession(id);
+        setCurrentSessionId(id);
+        loadMessages(data.messages);
+        clearError();
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setClearErrorMsg(`加载会话失败: ${msg}`);
+      }
+    },
+    [loadMessages, clearError]
+  );
 
   return (
     <div className="flex h-screen bg-[var(--color-bg)] text-[var(--color-text)]">
@@ -88,13 +128,50 @@ export function ChatConsole() {
                 <History className="size-4 shrink-0" />
                 历史记录
               </button>
+              <button
+                type="button"
+                onClick={() => setWorkspaceOpen(true)}
+                className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] transition-colors"
+              >
+                <FileText className="size-4 shrink-0" />
+                工作区
+              </button>
+              <button
+                type="button"
+                onClick={() => setConsoleLogOpen(true)}
+                className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] transition-colors"
+              >
+                <Terminal className="size-4 shrink-0" />
+                控制台日志
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduledTasksOpen(true)}
+                className="mt-2 flex w-full items-center gap-3 rounded-[var(--radius-lg)] px-3 py-2.5 text-sm text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)] transition-colors"
+              >
+                <Clock className="size-4 shrink-0" />
+                定时任务
+              </button>
               <div className="mt-6 px-2 text-xs font-medium text-[var(--color-text-subtle)] uppercase tracking-wider">
                 对话列表
               </div>
-              <div className="mt-2 rounded-[var(--radius-md)] px-3 py-4 text-center text-sm text-[var(--color-text-subtle)]">
-                暂无历史对话
-                <br />
-                <span className="text-xs">多会话即将支持</span>
+              <div className="mt-2 space-y-0.5 max-h-64 overflow-y-auto">
+                {sessionList.length === 0 ? (
+                  <div className="rounded-[var(--radius-md)] px-3 py-4 text-center text-sm text-[var(--color-text-subtle)]">
+                    暂无历史对话
+                  </div>
+                ) : (
+                  sessionList.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => handleLoadSession(s.id)}
+                      className={`w-full rounded-[var(--radius-sm)] px-3 py-2 text-left text-sm truncate ${currentSessionId === s.id ? "bg-[var(--color-primary-muted)] text-[var(--color-primary)]" : "text-[var(--color-text)] hover:bg-[var(--color-bg)]"}`}
+                    >
+                      {s.title || "新对话"}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
             <div className="shrink-0 p-3 shadow-[0_-1px_0_0_rgba(0,0,0,0.05)]">
@@ -201,6 +278,96 @@ export function ChatConsole() {
             </div>
             <div className="flex-1 min-h-0 overflow-hidden">
               <MemoryHistory />
+            </div>
+          </aside>
+        </>
+      )}
+
+      {workspaceOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            aria-hidden
+            onClick={() => setWorkspaceOpen(false)}
+          />
+          <aside
+            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[min(100%,720px)] flex-col bg-[var(--color-surface)] shadow-[var(--shadow-panel)]"
+            role="dialog"
+            aria-label="工作区"
+          >
+            <div className="flex h-14 shrink-0 items-center justify-between px-4 shadow-[var(--shadow-header)]">
+              <span className="font-semibold text-[var(--color-text)]">工作区</span>
+              <button
+                type="button"
+                onClick={() => setWorkspaceOpen(false)}
+                className="flex size-9 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
+                aria-label="关闭"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <WorkspacePanel />
+            </div>
+          </aside>
+        </>
+      )}
+
+      {consoleLogOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            aria-hidden
+            onClick={() => setConsoleLogOpen(false)}
+          />
+          <aside
+            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[min(100%,480px)] flex-col bg-[var(--color-surface)] shadow-[var(--shadow-panel)]"
+            role="dialog"
+            aria-label="控制台日志"
+          >
+            <div className="flex h-14 shrink-0 items-center justify-between px-4 shadow-[var(--shadow-header)]">
+              <span className="font-semibold text-[var(--color-text)]">控制台日志</span>
+              <button
+                type="button"
+                onClick={() => setConsoleLogOpen(false)}
+                className="flex size-9 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
+                aria-label="关闭"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ConsoleLogPanel />
+            </div>
+          </aside>
+        </>
+      )}
+
+      {scheduledTasksOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40 bg-black/20"
+            aria-hidden
+            onClick={() => setScheduledTasksOpen(false)}
+          />
+          <aside
+            className="fixed right-0 top-0 z-50 flex h-full w-full max-w-[min(100%,440px)] flex-col bg-[var(--color-surface)] shadow-[var(--shadow-panel)]"
+            role="dialog"
+            aria-label="定时任务"
+          >
+            <div className="flex h-14 shrink-0 items-center justify-between px-4 shadow-[var(--shadow-header)]">
+              <span className="font-semibold text-[var(--color-text)]">定时任务</span>
+              <button
+                type="button"
+                onClick={() => setScheduledTasksOpen(false)}
+                className="flex size-9 items-center justify-center rounded-[var(--radius-md)] text-[var(--color-text-muted)] hover:bg-[var(--color-bg)] hover:text-[var(--color-text)]"
+                aria-label="关闭"
+              >
+                <X className="size-5" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <ScheduledTasksPanel />
             </div>
           </aside>
         </>
