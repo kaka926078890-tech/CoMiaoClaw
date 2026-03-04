@@ -1,0 +1,5 @@
+{
+  "name": "Claw Console",
+  "description": "A sophisticated agent conversation console for managing AI assistants, sub-agents, skills, and workspace configurations.",
+  "requestFramePermissions": []
+}
