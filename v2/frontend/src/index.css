@@ -1,3 +1,35 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 @variant dark (&:where(.dark, .dark *));
+
+:root {
+  --color-bg: #fafafa;
+  --color-surface: #ffffff;
+  --color-border: rgba(0, 0, 0, 0.06);
+  --color-primary: #2563eb;
+  --color-text: #111827;
+  --color-text-muted: #6b7280;
+  --radius-md: 10px;
+}
+
+.dark {
+  --color-bg: #0a0a0a;
+  --color-surface: #171717;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-text: #fafafa;
+  --color-text-muted: #a1a1aa;
+}
+
+.prose p { margin: 0.5em 0; }
+.prose p:first-child { margin-top: 0; }
+.prose p:last-child { margin-bottom: 0; }
+.prose ul, .prose ol { margin: 0.5em 0; padding-left: 1.5em; }
+.prose li { margin: 0.25em 0; }
+.prose pre { margin: 0.75em 0; padding: 1em; border-radius: var(--radius-md); background: rgba(0,0,0,0.05); overflow-x: auto; font-size: 0.9em; }
+.dark .prose pre { background: rgba(255,255,255,0.06); }
+.prose code { font-family: ui-monospace, monospace; font-size: 0.9em; }
+.prose pre code { padding: 0; background: none; }
+.prose strong { font-weight: 600; }
+.prose a { color: var(--color-primary); text-decoration: underline; }
+.prose h1, .prose h2, .prose h3 { font-weight: 600; margin: 0.75em 0 0.35em; }
+.prose blockquote { margin: 0.5em 0; padding-left: 1em; border-left: 3px solid var(--color-border); color: var(--color-text-muted); }

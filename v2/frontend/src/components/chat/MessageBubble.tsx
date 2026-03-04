@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { cn } from '../../lib/utils';
-import { Message, SubAgentProcess, SkillProcess } from '../../types';
-import { User, Bot, Brain, Terminal, Code, ChevronDown, ChevronRight, Zap } from 'lucide-react';
+import { Message } from '../../types';
+import { User, Bot, Brain, Code, ChevronDown, ChevronRight, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { format } from 'date-fns';
+import 'katex/dist/katex.min.css';
+import { CodeBlock } from './CodeBlock';
 
 interface MessageBubbleProps {
   message: Message;
@@ -13,6 +18,9 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const [isThinkingExpanded, setIsThinkingExpanded] = useState(false);
   const [isSubAgentsExpanded, setIsSubAgentsExpanded] = useState(true);
+  useEffect(() => {
+    if (message.thinking) setIsThinkingExpanded(true);
+  }, [message.thinking]);
 
   return (
     <div className={cn("flex gap-4 mb-6 group", isUser ? "flex-row-reverse" : "flex-row")}>
@@ -24,10 +32,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
         {isUser ? <User size={16} className="text-white" /> : <Bot size={16} className="text-white" />}
       </div>
 
-      {/* Content */}
-      <div className={cn("flex flex-col max-w-[80%]", isUser ? "items-end" : "items-start")}>
-        
-        {/* Metadata */}
+      <div className={cn("flex flex-col max-w-[80%]", isUser ? "items-end" : "items-start w-full")}>
         <div className="flex items-center gap-2 mb-1 px-1">
           <span className="text-xs font-medium text-neutral-500 dark:text-neutral-400">
             {isUser ? 'You' : 'Claw Assistant'}
@@ -37,36 +42,39 @@ export function MessageBubble({ message }: MessageBubbleProps) {
           </span>
         </div>
 
-        {/* Message Body */}
         <div className={cn(
-          "rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm relative group-hover:shadow-md transition-shadow",
-          isUser 
-            ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-tr-none" 
-            : "bg-white dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 border border-neutral-200 dark:border-neutral-800 rounded-tl-none"
+          "px-4 py-3 text-sm leading-relaxed w-full",
+          isUser
+            ? "rounded-2xl bg-neutral-100 dark:bg-neutral-800 text-neutral-900 dark:text-neutral-100 rounded-tr-none shadow-sm"
+            : "text-neutral-800 dark:text-neutral-200"
         )}>
           {/* Debug Info (Only for Assistant & Not History) */}
           {!isUser && !message.isHistory && (
             <div className="space-y-3 mb-3">
               
-              {/* Thinking Block */}
-              {message.thinking && (
-                <div className="border-l-2 border-neutral-300 dark:border-neutral-700 pl-3 py-1">
-                  <button 
-                    onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
-                    className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors w-full text-left"
-                  >
-                    <Brain size={12} />
-                    <span>Thinking Process</span>
-                    {isThinkingExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                  </button>
-                  
-                  {isThinkingExpanded && (
-                    <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400 italic font-mono bg-neutral-50 dark:bg-neutral-900 p-2 rounded">
-                      {message.thinking}
-                    </div>
+              <div className="border-l-2 border-neutral-300 dark:border-neutral-700 pl-3 py-1">
+                  {message.thinking ? (
+                    <>
+                      <button
+                        onClick={() => setIsThinkingExpanded(!isThinkingExpanded)}
+                        className="flex items-center gap-2 text-xs font-mono text-neutral-500 dark:text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 transition-colors w-full text-left"
+                      >
+                        <Brain size={12} />
+                        <span>思考过程</span>
+                        {isThinkingExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      </button>
+                      {isThinkingExpanded && (
+                        <div className="mt-2 text-xs text-neutral-600 dark:text-neutral-400 italic font-mono bg-neutral-50 dark:bg-neutral-900/50 p-2 rounded whitespace-pre-wrap">
+                          {message.thinking}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+                      思考过程仅在使用 <strong>DeepSeek Reasoner</strong> 模型时显示。
+                    </p>
                   )}
-                </div>
-              )}
+              </div>
 
               {/* Sub-Agents Block */}
               {message.subAgents && message.subAgents.length > 0 && (
@@ -122,9 +130,24 @@ export function MessageBubble({ message }: MessageBubbleProps) {
             </div>
           )}
 
-          {/* Main Content */}
-          <div className="markdown-body text-sm prose prose-neutral dark:prose-invert prose-p:leading-relaxed prose-pre:bg-neutral-100 dark:prose-pre:bg-neutral-900 prose-pre:border prose-pre:border-neutral-200 dark:prose-pre:border-neutral-800 max-w-none">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+          <div className="prose prose-sm max-w-none text-[var(--color-text)] dark:prose-invert [&_.katex]:text-inherit">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
+              components={{
+                pre: ({ children }) => {
+                  const first = React.Children.toArray(children)[0] as React.ReactElement<{ className?: string; children?: React.ReactNode }> | undefined;
+                  if (!first?.props?.className?.includes('language-')) return <pre>{children}</pre>;
+                  const className = first.props.className;
+                  const lang = className ? String(className).replace(/^language-/, '').trim() : 'text';
+                  const raw = first.props.children;
+                  const code = Array.isArray(raw) ? raw.join('') : String(raw ?? '');
+                  return <CodeBlock code={code} lang={lang} />;
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
           </div>
         </div>
       </div>

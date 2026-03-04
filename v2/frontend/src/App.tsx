@@ -13,7 +13,7 @@ import { TasksView } from './components/tasks/TasksView';
 import { Message } from './types';
 import { History } from 'lucide-react';
 import { cn } from './lib/utils';
-import { getConfig, postChat } from './api/gateway';
+import { getConfig, postChatStream } from './api/gateway';
 
 export default function App() {
   const [activeView, setActiveView] = useState('chat');
@@ -38,34 +38,38 @@ export default function App() {
   };
 
   const handleSendMessage = (content: string) => {
-    const newMessage: Message = {
+    const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
       content,
       timestamp: new Date()
     };
-    setMessages(prev => [...prev, newMessage]);
+    const assistantId = (Date.now() + 1).toString();
+    const assistantMsg: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+      thinking: '',
+    };
+    setMessages(prev => [...prev, userMsg, assistantMsg]);
     setChatLoading(true);
-    postChat(content, model)
-      .then((r) => {
-        const assistantMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: r.reply,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, assistantMsg]);
-      })
+    postChatStream(content, model, (chunk) => {
+      if (chunk.type === 'thinking') {
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + chunk.text } : m));
+      } else if (chunk.type === 'content') {
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: m.content + chunk.text } : m));
+      } else if (chunk.type === 'done') {
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: chunk.reply || m.content } : m));
+      } else if (chunk.type === 'error') {
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Error: ${chunk.error}` } : m));
+      }
+    })
+      .then(() => setChatLoading(false))
       .catch((err) => {
-        const assistantMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: `Error: ${err instanceof Error ? err.message : String(err)}`,
-          timestamp: new Date(),
-        };
-        setMessages(prev => [...prev, assistantMsg]);
-      })
-      .finally(() => setChatLoading(false));
+        setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: `Error: ${err instanceof Error ? err.message : String(err)}` } : m));
+        setChatLoading(false);
+      });
   };
 
   const handleLoadChat = (chatId: string) => {

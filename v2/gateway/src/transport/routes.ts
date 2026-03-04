@@ -1,11 +1,15 @@
 import { Router, Request, Response } from 'express';
-import { singleTurnChat } from '../application/chat.js';
+import { singleTurnChat, singleTurnChatStream } from '../application/chat.js';
 import { config } from '../shared/config.js';
 import type { ChatRequest, ChatResponse, ConfigResponse } from '../shared/types.js';
 import type { RequestWithId } from './middleware.js';
 
 function getRequestId(req: Request): string {
   return (req as RequestWithId).requestId ?? '-';
+}
+
+function writeSSE(res: Response, data: object): void {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
 }
 
 export function createChatRouter(): Router {
@@ -37,10 +41,51 @@ export function createChatRouter(): Router {
       return;
     }
     const model = typeof raw.model === 'string' ? raw.model : undefined;
-    const sessionId = typeof raw.sessionId === 'string' ? raw.sessionId : undefined;
-    const payload: ChatRequest = { message: message.trim(), model, sessionId };
+    const stream = raw.stream === true;
+    const payload: ChatRequest = { message: message.trim(), model, sessionId: undefined };
 
     const t0 = Date.now();
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders();
+      try {
+        const gen = singleTurnChatStream({ message: payload.message, model: payload.model });
+        let result: ChatResponse | null = null;
+        while (true) {
+          const { value, done } = await gen.next();
+          if (done && value && 'reply' in value) {
+            result = value;
+            break;
+          }
+          const delta = value as { reasoning_content?: string; content?: string } | undefined;
+          if (delta?.reasoning_content) writeSSE(res, { type: 'thinking', text: delta.reasoning_content });
+          if (delta?.content) writeSSE(res, { type: 'content', text: delta.content });
+        }
+        if (result) writeSSE(res, { type: 'done', reply: result.reply, model: result.model });
+        else writeSSE(res, { type: 'done', reply: '', model: config.defaultModel });
+        const elapsed = Date.now() - t0;
+        process.stderr.write(JSON.stringify({
+          level: 'info',
+          requestId,
+          event: 'chat_stream_complete',
+          elapsedMs: elapsed,
+        }) + '\n');
+      } catch (err) {
+        process.stderr.write(JSON.stringify({
+          level: 'error',
+          requestId,
+          event: 'chat_stream_error',
+          error: err instanceof Error ? err.message : String(err),
+        }) + '\n');
+        writeSSE(res, { type: 'error', error: err instanceof Error ? err.message : String(err) });
+      } finally {
+        res.end();
+      }
+      return;
+    }
+
     try {
       const result = await singleTurnChat({
         message: payload.message,
