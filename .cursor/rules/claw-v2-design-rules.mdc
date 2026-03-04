@@ -1,0 +1,57 @@
+---
+description: 以 v2/docs/claw-v2-design.md 为权威的设计与实现严格要求，须全量遵守
+globs:
+alwaysApply: true
+---
+
+# Claw V2 设计严格要求
+
+本规则以 [v2/docs/claw-v2-design.md](v2/docs/claw-v2-design.md) 为**设计权威**。凡涉及重写/V2、或与设计文档中已定结论相关的实现与评审，须严格遵循以下条款；与现有规则（project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc、root-cause-over-fallback.mdc、agents-persona.mdc）冲突时，以设计文档与本规则为准。
+
+## 一、设计文档权威
+
+- **权威来源**：`v2/docs/claw-v2-design.md` 为 Claw 重写版的产品设计与决策汇总。
+- **禁止偏离**：实现时不得引入设计文档中未讨论、未约定的能力或架构形态；若需扩展，须先更新设计文档并达成一致后再实现。
+- **目标**：可发版、具备商业化价值、市场认可的产品；不做简化版、演示版或「仅供学习」的弱化实现。
+
+## 二、架构分层与依赖（必须遵守）
+
+- **四层**：接入层（Transport）→ 应用层（Application）→ 领域层（Domain）→ 基础设施层（Infrastructure）；依赖**只朝内**，不得反向依赖。
+- **接入层**：仅做 HTTP/SSE、路由、body/query 校验、session 解析；**不**解析 tool_calls、**不**拼 system；契约（请求/响应形状）在边界定义。
+- **应用层**：只做对话编排（拼 system/tools、chat loop、写记忆、更新 session）；**不**实现具体工具或 LLM 请求格式。
+- **领域层**：工具注册表与执行分发；**不**依赖 express 或具体 HTTP 库，只依赖抽象接口；具体技术由基础设施层实现。
+- **基础设施层**：实现 LLM 客户端、记忆/向量、技能执行、工作区等接口。
+- **目录**：重写时按 `transport/`、`application/`、`domain/`、`infrastructure/`、`shared/` 组织，不得在单文件中混合多层职责。
+
+## 三、重写方向（V2 必须遵守）
+
+- **模型**：对接 DeepSeek API（OpenAI 兼容），使用 function calling；**禁止**在 V2 中保留从 assistant 正文解析协议行的能力作为主路径。
+- **协议**：全部废弃；所有能力以 **tool（tool_calls）** 暴露，由 LLM 主动调用。
+- **子 agent**：只暴露「调用子 agent」的 tool；**禁止**写死「若满足某条件则派给某角色」的逻辑；LLM 决定何时调谁。
+- **记忆**：向量检索 + **search_memory** tool；**禁止**把记忆整块拼进 system；写入时做 embedding 入向量库，读时由模型按需 tool_call。
+- **System**：人设、工作区说明、当前时间等；**禁止**写入「必须写 DELEGATE 行」等协议类规则；记忆不直接拼入。
+- **契约优先**：API 与工具 schema 的类型定义与文档先行，实现可变；后端 API 或 tool 变更时先更新类型/文档，再改调用方。
+
+## 四、技能机制（必须遵守）
+
+- **文档型**：仅有 SKILL.md 时，执行由现有 tool 实现或返回文档内容；**禁止**依赖公网技能商店或运行时拉取。
+- **脚本型**：目录下存在 run.py/run.js 等时，**仅**在本地执行（子进程 + 超时 + 固定 cwd）；**禁止**调用第三方云函数或公网执行服务。
+- **执行环境**：工作目录固定为该 skill 目录；硬超时（如 30s）必须 kill；路径与网络按安全建议限制；技能列表来自本地目录扫描。
+- **多机部署**：技能以文件形式拷贝到每台机器即可用，不依赖外网或中心服务。
+
+## 五、安全（必须遵守）
+
+- **密钥**：API Key 等**仅**环境变量或本地配置文件，**禁止**写进代码或提交；日志中**禁止**输出完整 key 或敏感参数。
+- **输入**：对 message、sessionId、tool 参数做类型与长度校验；URL 仅允许 http(s)；path **禁止** `..` 与越权；skill_id/agent_id **仅**允许已扫描列表内。
+- **工具执行**：子 agent 仅允许 workspace/agents 下已存在的 role；fetch_url 需超时与可选白名单；文件路径规范化为绝对路径后**严格**限制在配置根内；run_skill 固定 cwd、超时、可选网络/内存限制。
+- **网络**：部署时建议仅监听内网或指定网卡；对外提供服务时必须加认证与访问控制。
+
+## 六、监控（必须遵守）
+
+- **日志**：结构化（如 JSON）；**必须**含 requestId（从接入层生成并贯穿）；记录请求入口、每次 LLM 调用（model、耗时、成功/失败）、每次 tool 执行（name、参数摘要、耗时、成功/失败）；**禁止**记录完整 user/assistant 内容或 key。
+- **异常**：未处理异常统一打 error 并返回统一错误响应；不吞掉错误或仅打 console。
+
+## 七、与现有规则的关系
+
+- **同时遵守**：本规则与 `.cursor/rules/` 下 project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc、root-cause-over-fallback.mdc、agents-persona.mdc 均须遵守。
+- **冲突时**：若与上述规则中某条在具体场景下冲突，以设计文档（claw-v2-design.md）与本规则为准，并可在 error-corrections.mdc 中记录以便后续统一。

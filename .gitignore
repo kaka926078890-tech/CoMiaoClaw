@@ -4,6 +4,8 @@ node_modules/
 # Build / dist
 frontend/dist/
 gateway/dist/
+v1/gateway/dist/
+v1/frontend/dist/
 *.tsbuildinfo
 
 # Environment (do not commit secrets)
@@ -12,8 +14,10 @@ gateway/dist/
 .env.*.local
 
 # Script runtime
-script/logs/
-script/claw.pids
+v1/script/logs/
+v1/script/claw.pids
+v2/.dev/
+v2/logs/
 
 # IDE / Editor
 .idea/

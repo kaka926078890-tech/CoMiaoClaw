@@ -2,11 +2,12 @@
   "name": "comiao-claw",
   "private": true,
   "version": "0.0.1",
-  "description": "Claw 对话控制台：网关 + 前端",
+  "description": "Claw：V1 现有实现 / V2 重写版",
   "scripts": {
-    "dev": "concurrently -n gw,fe -c blue,green \"npm run dev --prefix gateway\" \"npm run dev --prefix frontend\"",
+    "dev": "npm run dev --prefix v1",
+    "dev:v1": "npm run dev --prefix v1",
     "start": "npm run dev",
-    "install:all": "npm install --prefix gateway && npm install --prefix frontend"
+    "install:all": "npm install --prefix v1 && npm run install:all --prefix v1"
   },
   "devDependencies": {
     "concurrently": "^9.1.0"

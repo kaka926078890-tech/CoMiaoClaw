@@ -19,8 +19,9 @@ alwaysApply: false
 
 | 位置 | 用途 |
 |------|------|
-| 仓库根目录 `docs/` | 跨模块、整体说明（如 MVP 范围、roadmap、联调说明） |
-| 子项目内 `*/docs/` 或 `*/README.md` | 该模块专属文档（如 gateway、frontend 的说明） |
+| `v1/docs/` | V1 相关说明（MVP、roadmap、联调、子 agent 等） |
+| `v2/docs/` | V2 设计、阶段 todo、Figma 说明等 |
+| 各子项目内 `*/README.md` | 该模块专属说明 |
 | 临时文档 | `*.tmp-note.md`，完成后及时清理 |
 
 ## 三、常见文档类型与命名示例

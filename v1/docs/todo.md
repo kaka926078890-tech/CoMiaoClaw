@@ -50,10 +50,16 @@
 
 ### P2：体验与扩展
 
+- [ ] **前端**：工作区编辑 .md 时提供 Markdown 预览器（分栏或 Tab）；历史记录加载时仅展示正文、不展示思考/子 agent/技能过程；对话进行中可展示思考、子 agent 并发与合并过程、技能调用过程等（调试用）。详见项目根 `docs/figma-frontend-ui-brief.md`。
+- [ ] **记忆**：记忆文件记录完整正文（及必要元数据）；历史列表/加载仅展示正文视图。
 - [ ] **定时任务改用 Redis**：任务定义与调度迁到 Redis（替代当前 JSON 文件 + 内存轮询）；到点触发或 worker 拉取任务，执行器（runInstructionHeadless、runTask 等）不变；便于多实例、持久化与扩展。
 - [ ] 多端 / 多 channel：Telegram、微信等入口统一转内部消息，参考 OpenClaw channel 抽象。
 - [ ] Compaction / 摘要：对话过长时对旧消息摘要或压缩。
 - [ ] 多模型与 fallback：多模型配置与不可用时的 fallback。
+
+### 重写版（V2）设计
+
+- 个人 Claw 重写版的设计与决策（DeepSeek API、tool 化、记忆向量、技能与脚本执行、架构分层、安全与监控）见 [claw-v2-design.md](claw-v2-design.md)。待实现时可按该文档拆分具体 todo。
 
 ### 开放问题（待讨论后拆成具体 todo）
 

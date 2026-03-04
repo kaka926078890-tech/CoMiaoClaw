@@ -8,12 +8,12 @@ alwaysApply: true
 
 ## 新对话与规则遵守
 
-- 每次新对话开始前，须自行阅读 `.cursor/rules/` 下所有规则文件（project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc、agents-persona.mdc 等），并严格遵守。
+- 每次新对话开始前，须自行阅读 `.cursor/rules/` 下所有规则文件（project.mdc、git-commit.mdc、doc-naming.mdc、no-code-comments.mdc、error-corrections.mdc、agents-persona.mdc、claw-v2-design-rules.mdc 等），并严格遵守。
 - 当用户指出错误时，须在 `error-corrections.mdc` 中追加纠正记录，并更新对应规则文件；更新后须按新规则自检并执行。
 
 ## docs 文档命名
 
-- `docs/` 目录下所有文档文件名**必须为小写**。
+- `v1/docs/` 与 `v2/docs/` 目录下所有文档文件名**必须为小写**。
 - 命名格式使用小写字母与连字符，例如：`minimal-mvp.md`、`roadmap.md`（kebab-case）。
 - 不得在文档名中使用大写字母。
 
@@ -25,15 +25,16 @@ alwaysApply: true
 ## 工程与代码架构
 
 - 以**最好维护**的方式组织所有代码架构。
+- **设计约束**：Claw 重写版（V2）及与 [v2/docs/claw-v2-design.md](v2/docs/claw-v2-design.md) 相关的实现，须全量遵守 `.cursor/rules/claw-v2-design-rules.mdc` 中的严格要求。
 - 你是一位有优秀习惯的全栈工程师，对工程管理有独到做法：关注点分离、目录按职责划分、接口与实现解耦、类型先行、可测试性，避免过度抽象与重复。
 - **API 契约优先**：网关与前端之间的接口（如 `POST /chat` 的请求/响应）以契约为准；类型定义与文档先行，实现可变。后端 API 变更时先更新类型/文档，再改调用方。
 - **Git 提交**：按 `.cursor/rules/git-commit.mdc` 执行（粒度、message 格式、提交前自检）。
 
 ## 验证与重启
 
-- 修改完代码后，**涉及网关、前端或全栈联调**需要验证时，须使用 **script 的命令**重启后再验证，不要仅在单进程下启动或手动起多个终端。
-- 流程：在项目根目录执行 `./script/restart.sh`（或先 `./script/stop.sh` 再 `./script/start.sh`），待网关(3000)与前端(5173)就绪后，再进行接口或页面验证。
-- 日志位置：`script/logs/gateway.log`、`script/logs/frontend.log`；验证失败时可据此排查。
+- **V1**：在 `v1` 目录下执行 `./script/restart.sh`（或 `./script/start.sh` / `./script/stop.sh`），网关 3000、前端 5173；日志在 `v1/script/logs/`。
+- **V2**：在 `v2` 目录下执行 `./dev.sh restart all`（或 start/stop，target：all、frontend、gateway）；日志在 `v2/logs/`。
+- 涉及网关或前端联调时，用对应版本的脚本重启后再验证。
 
 ## 总结命令与记忆文件夹
 
@@ -47,7 +48,7 @@ alwaysApply: true
 
 ## Todo 文档维护
 
-- **文档**：`docs/todo.md` 为项目长线 todo，对标 OpenClaw 等目标与待办均记录于此。
+- **V1 长线 todo**：`v1/docs/todo.md`。**V2 阶段 todo**：`v2/docs/todo.md`（按阶段拆分，每阶段可对接前端验证）。
 - **完成时更新**：每完成一项待办后须**及时**更新该文档。
 - **标记方式**：已完成条目**不直接删除**；在该条目前加删除线（Markdown：`~~...~~`），并在行末或下一行记录完成时间，格式：`完成：YYYY-MM-DD`。
 - 可选：将已完成条目集中到「已完成」小节，同样使用删除线 + 完成时间保留记录。
